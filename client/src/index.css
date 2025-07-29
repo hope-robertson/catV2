@@ -1,0 +1,25 @@
+/* client/src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', sans-serif;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border: 1px solid #e2e8f0; /* Tailwind's border-gray-200 */
+  padding: 8px;
+  text-align: left;
+}
+
+th {
+  background-color: #f7fafc; /* Tailwind's bg-gray-50 */
+  font-weight: bold;
+}
