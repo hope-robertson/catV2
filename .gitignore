@@ -1,0 +1,11 @@
+# Node modules
+node_modules/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+uploads/
+*.sqlite3
+.DS_Store
+Thumbs.db
