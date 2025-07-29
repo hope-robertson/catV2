@@ -11,7 +11,7 @@ export default {
     client: 'sqlite3',
     useNullAsDefault: true,
     connection: {
-      filename: path.join(__dirname, 'server', 'db', 'catV2.sqlite3'),
+      filename: path.join(__dirname, 'server', 'db', 'catV2.sqlite3'), // New database name
     },
     pool: {
       afterCreate: (conn, cb) => {
@@ -19,8 +19,8 @@ export default {
       },
     },
     migrations: {
-      // UPDATED THIS LINE:
-      directory: path.join(__dirname, 'server', 'db', 'migrations'), // Added 'db' here
+      // UPDATED: Point to the server/db/migrations folder
+      directory: path.join(__dirname, 'server', 'db', 'migrations'),
     },
     seeds: {
       directory: path.join(__dirname, 'server', 'seeds'),

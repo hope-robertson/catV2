@@ -1,0 +1,170 @@
+// server/db/catalogue.ts
+
+import knex from '../db/connection.js' // Ensure this path is correct for your Knex connection
+import { insertBatched } from '../utils' // Import the batched insert utility
+import { CatalogueRow, MasterCatalogueRow } from '../types/catalogue.js' // NEW: Import interfaces from shared types file
+
+/**
+ * Inserts catalogue data into the specified raw table.
+ * Deletes all existing data in the table before inserting new data.
+ * This effectively overwrites the table with the new import.
+ * @param tableName The name of the raw table (e.g., 'southbound_raw').
+ * @param data An array of CatalogueRow objects to insert.
+ * @returns The number of records inserted.
+ */
+export async function importCatalogueData(
+  tableName: string,
+  data: CatalogueRow[] // Use the CatalogueRow interface for type safety
+): Promise<number> {
+  try {
+    // --- Clear existing data in the table before inserting ---
+    console.log(`Clearing existing data from table: ${tableName}`)
+    await knex(tableName).del() // Or .truncate() for faster, non-transactional clearing if supported and safe
+
+    // NEW: Use the batched insert utility
+    const insertedCount = await insertBatched(knex, tableName, data, 50) // Using a batch size of 50
+    return insertedCount // Return the total count from the batched insert
+  } catch (error) {
+    console.error(`Error inserting data into ${tableName}:`, error)
+    throw error
+  }
+}
+
+/**
+ * Consolidates data from all raw distributor tables into the master_catalogue table.
+ * This function will clear the master_catalogue table and then re-populate it.
+ * It handles potential duplicates by prioritizing newer imports or specific distributors.
+ * For now, it will simply insert all unique items, prioritizing by barcode if present.
+ *
+ * NOTE: This is a basic consolidation. More advanced logic for merging (e.g., updating
+ * existing entries rather than just re-inserting) would be added here later.
+ * @returns The number of records inserted into the master_catalogue.
+ */
+export async function consolidateRawDataToMaster(): Promise<number> {
+  try {
+    console.log('Consolidating raw data into master_catalogue...')
+
+    // Clear existing data in master_catalogue before re-populating
+    await knex('master_catalogue').del()
+
+    const rawTableNames = [
+      'flying_nun_records_limited_raw',
+      'border_music_raw',
+      'collective_lp_raw',
+      'collective_cd_raw',
+      'southbound_instock_raw',
+      'rhythmethod_group_combined_raw',
+      // Add other raw table names as they are introduced
+    ]
+
+    let totalInserted = 0
+    const uniqueItems = new Map<string, MasterCatalogueRow>() // Key: barcode or (artist + title + format)
+
+    for (const tableName of rawTableNames) {
+      const rawData = await knex(tableName).select('*')
+      for (const item of rawData) {
+        const masterItem: MasterCatalogueRow = {
+          imported_at: new Date(item.imported_at), // Ensure it's a Date object
+          distributor: item.distributor, // Original distributor
+          artist: item.artist,
+          title: item.title,
+          label: item.label,
+          format: item.format,
+          released: item.released,
+          description: item.description, // Now compatible with string | null | undefined
+          barcode: item.barcode,
+          catalogue_number: item.catalogue_number,
+          price: item.price || item.unit_sale_price_excl_gst, // Use price or Flying Nun's specific price
+          bin_location: item.bin_location,
+          item_code: item.item_code,
+          unit_sale_price_excl_gst: item.unit_sale_price_excl_gst,
+          source_distributor: item.distributor, // This is the source raw table's distributor
+          last_imported_at: new Date(), // Set current time for consolidation
+          // Discogs fields will be null initially
+          discogs_release_id: null,
+          discogs_master_id: null,
+          discogs_release_date: null,
+          genres: null,
+          styles: null,
+          image_url: null,
+          tracklist: null,
+        }
+
+        // Simple deduplication logic: prioritize by barcode, then by artist/title/format
+        const key =
+          masterItem.barcode ||
+          `${masterItem.artist}-${masterItem.title}-${masterItem.format}`
+        if (key && !uniqueItems.has(key)) {
+          uniqueItems.set(key, masterItem)
+        }
+      }
+    }
+
+    const itemsToInsert = Array.from(uniqueItems.values())
+    if (itemsToInsert.length > 0) {
+      // Insert in batches to avoid overwhelming the database with too many inserts at once
+      const batchSize = 500 // Adjust batch size as needed
+      for (let i = 0; i < itemsToInsert.length; i += batchSize) {
+        const batch = itemsToInsert.slice(i, i + batchSize)
+        // Use Knex's batchInsert for master_catalogue as well for efficiency
+        const result = await knex('master_catalogue').insert(batch)
+        totalInserted += result.length // Knex's insert/batchInsert might return different things, assuming length for count
+      }
+    }
+
+    console.log(
+      `Consolidated ${totalInserted} unique records into master_catalogue.`
+    )
+    return totalInserted
+  } catch (error) {
+    console.error('Error consolidating raw data to master catalogue:', error)
+    throw error
+  }
+}
+
+/**
+ * Fetches all entries from the new 'master_catalogue' table, with optional filters.
+ * This is the primary function for displaying consolidated catalogue data.
+ * @param distributor Optional: Filter by source_distributor.
+ * @param format Optional: Filter by format (e.g., 'LP', 'CD').
+ * @returns An array of MasterCatalogueRow objects.
+ */
+export async function getAllMasterCatalogue(
+  distributor?: string,
+  format?: string
+): Promise<MasterCatalogueRow[]> {
+  try {
+    let query = knex<MasterCatalogueRow>('master_catalogue').select('*')
+
+    if (distributor && distributor !== 'All') {
+      // 'All' means no specific distributor filter
+      query = query.where('source_distributor', distributor)
+    }
+
+    if (format && format !== 'All') {
+      // 'All' means no specific format filter
+      query = query.where('format', 'ilike', `%${format}%`) // Case-insensitive format match
+    }
+
+    return await query
+  } catch (error) {
+    console.error('Error fetching all master catalogue entries:', error)
+    throw error
+  }
+}
+
+/**
+ * Fetches all raw catalogue entries specifically from the 'southbound_instock_raw' table.
+ * (This function can be kept for debugging/specific raw table access, but the frontend
+ * will primarily use getAllMasterCatalogue for display).
+ * @returns An array of CatalogueRow objects from the southbound_instock_raw table.
+ */
+export async function getAllSouthboundCatalogue(): Promise<CatalogueRow[]> {
+  try {
+    // Select all columns from the southbound_instock_raw table
+    return await knex<CatalogueRow>('southbound_instock_raw').select('*')
+  } catch (error) {
+    console.error('Error fetching Southbound catalogue entries:', error)
+    throw error
+  }
+}
