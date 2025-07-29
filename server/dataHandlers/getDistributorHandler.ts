@@ -3,18 +3,18 @@ import {
   DistributorConfig,
   DistributorHandler,
   CatalogueRow,
-} from '../types/catalogue' // Ensure CatalogueRow is imported
-import { processExcelRows, getWorksheet } from '../utils/excelHelpers'
-import { processCsvRows } from '../utils/csvHelpers'
+} from '../types/catalogue.js' // Ensure CatalogueRow is imported
+import { processExcelRows, getWorksheet } from '../utils/excelHelpers.js'
+import { processCsvRows } from '../utils/csvHelpers.js'
 
-import { mapBorderMusicRow } from './distributorHandlers/borderMusicHandler'
-import { mapCollectiveRow } from './distributorHandlers/collectiveHandler'
-import { mapFlyingNunRow } from './distributorHandlers/flyingNunHandler'
+import { mapBorderMusicRow } from './distributorHandlers/borderMusicHandler.js'
+import { mapCollectiveRow } from './distributorHandlers/collectiveHandler.js'
+import { mapFlyingNunRow } from './distributorHandlers/flyingNunHandler.js'
 import {
   handleRhythmethodGroupUpload,
   mapRhythmethodGroupRow,
-} from './distributorHandlers/rhythmethodGroupHandler' // Import mapRhythmethodGroupRow too
-import { mapSouthboundRow } from './distributorHandlers/southboundHandler' // Import Southbound handler
+} from './distributorHandlers/rhythmethodGroupHandler.js' // Import mapRhythmethodGroupRow too
+import { mapSouthboundRow } from './distributorHandlers/southboundHandler.js' // Import Southbound handler
 
 // Centralized configuration for all distributors
 const distributorConfigurations: DistributorConfig[] = [
