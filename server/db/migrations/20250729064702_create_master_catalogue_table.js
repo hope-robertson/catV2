@@ -35,6 +35,10 @@ export async function up(knex) {
       table.text('image_url').nullable()
       table.json('tracklist').nullable()
 
+      // NEW: Your new fields for staff curation
+      table.integer('popularity_rating').nullable() // 1: Risky, 2: Could be reviewed, 3: Banger
+      table.text('staff_blurb').nullable()
+
       table.timestamps(true, true)
     })
   } else {
