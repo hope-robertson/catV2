@@ -1,19 +1,26 @@
 {
   "compilerOptions": {
-    "target": "ES2022", // Use a modern target for ES Modules
-    "module": "Node16", // Or "ESNext" or "NodeNext" for modern Node.js module resolution
-    "lib": ["ES2022", "DOM"], // Include DOM if you're also compiling client-side React
+    "target": "ES2022",
+    "module": "NodeNext",
+    "lib": ["ES2022", "DOM"],
     "outDir": "dist",
     "rootDir": ".",
-    "strict": true, // Keep strict mode for better type safety
-    "esModuleInterop": true, // Crucial for handling default imports from CommonJS/non-ESM modules
-    "allowSyntheticDefaultImports": true, // Allows `import x from 'y'` for modules that only have `export default`
-    "moduleResolution": "Node16", // Or "NodeNext" - important for how modules are resolved
-    "skipLibCheck": true, // Skip type checking of declaration files, useful for external libraries
+    "strict": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "NodeNext",
+    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true, // Allow importing .json files
-    "sourceMap": true // Generate source maps for debugging
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "allowJs": true,
+    "baseUrl": "."
   },
-  "include": ["server/**/*.ts", "client/**/*.ts", "client/**/*.tsx", "knexfile.d.ts"], // Include knexfile.d.ts
+  "include": [
+    "server/**/*.ts",
+    "client/**/*.ts",
+    "client/**/*.tsx",
+    "knexfile.js"
+  ],
   "exclude": ["node_modules", "dist"]
 }
