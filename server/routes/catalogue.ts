@@ -1,13 +1,12 @@
 // server/routes/catalogue.ts
-
 import { Router, Request, Response } from 'express'
-import checkJwt from '../../server/auth0/index.js' // Assuming checkJwt middleware is here
-import * as db from '../db/catalogue.ts' // Your database functions
+import checkJwt from '../auth0/index.js'
+import * as db from '../db/catalogue.js'
 import exceljs from 'exceljs'
 import path from 'path'
-import fs from 'fs' // For reading the uploaded file stream
-import csv from 'csv-parser' // For parsing CSV files
-import { mapXlsxRow, mapCsvRow, CatalogueRow } from './catalogueMapping.js' // Import mapping functions and CatalogueRow interface
+import fs from 'fs'
+import csv from 'csv-parser'
+import { mapXlsxRow, mapCsvRow, CatalogueRow } from './catalogueMapping.js'
 
 const router = Router()
 
@@ -16,9 +15,9 @@ type FormatType = 'LP' | 'CD' | 'All'
 
 router.post('/import', checkJwt, async (req: Request, res: Response) => {
   try {
-    const filename = req.body.filename as string // Name of the uploaded file
-    const distributor = req.body.distributor as string // Selected distributor from frontend dropdown
-    const formatType = (req.body.formatType || 'All') as FormatType // New: 'LP', 'CD', or 'All'
+    const filename = req.body.filename as string
+    const distributor = req.body.distributor as string
+    const formatType = (req.body.formatType || 'All') as FormatType
 
     if (!filename || !distributor) {
       return res
@@ -30,32 +29,20 @@ router.post('/import', checkJwt, async (req: Request, res: Response) => {
     const fileExtension = path.extname(filename).toLowerCase()
     const dataToInsert: CatalogueRow[] = []
 
-    // --- Define the mapping for Excel sheet names to internal distributor names ---
-    // This is crucial for multi-tab Excel files (like Rhythmethod/Warner/Sony combined)
-    // Ensure these keys exactly match the tab names in your Excel file.
-    // The values should match the 'distributor' value you want in the database.
     const excelSheetToDistributorMap: Record<string, string> = {
-      Sony: 'Sony', // Example: Tab named 'Sony' -> distributor 'Sony'
-      Warner: 'Warner', // Example: Tab named 'Warner' -> distributor 'Warner'
-      Rhythmethod: 'Rhythmethod (RM)', // Example: Tab named 'Rhythmethod' -> distributor 'Rhythmethod (RM)'
-      // Add other specific tab names if you have a combined file for Collective, etc.
+      Sony: 'Sony',
+      Warner: 'Warner',
+      Rhythmethod: 'Rhythmethod (RM)',
     }
 
-    // Determine how many header rows to skip for each distributor's Excel file
-    // This assumes the actual data starts right after the header rows.
     const headerRowsToSkip: Record<string, number> = {
-      'Border Music': 3, // Skip 3 rows: Row 1 (BORDER MUSIC LIMITED), Row 2 (Vinyl in Stock), Row 3 (Actual Headers)
-      'Collective (LP)': 1, // Collective LP Excel: Header on Row 1, data starts on Row 2 (skip 1 row)
-      'Collective (CD)': 1, // Collective CD Excel: Header on Row 1, data starts on Row 2 (skip 1 row)
-      'Southbound': 4, // Southbound Excel: Headers on Row 5, data starts on Row 6 (skip 4 rows)
-      // 'Juno': 1, // Commented out Juno for now
-      // For combined Rhythmethod sheets, the logic below handles multiple sheets,
-      // and we'll apply a common skip for their individual sheet headers.
-      'Rhythmethod_Group_Combined_LP': 1, // Each tab in combined Excel should also skip its header
-      'Rhythmethod_Group_Combined_CD': 1, // Each tab in combined Excel should also skip its header
-      // Add more as needed
-    };
-
+      'Border Music': 3,
+      'Collective (LP)': 1,
+      'Collective (CD)': 1,
+      Southbound: 4,
+      Rhythmethod_Group_Combined_LP: 1,
+      Rhythmethod_Group_Combined_CD: 1,
+    }
 
     // --- Main File Type Handling Logic ---
     if (fileExtension === '.xlsx') {
@@ -63,34 +50,26 @@ router.post('/import', checkJwt, async (req: Request, res: Response) => {
       try {
         await workbook.xlsx.readFile(filePath)
 
-        // If it's a combined Rhythmethod/Warner/Sony file (identified by specific distributor from frontend)
-        // NOTE: Frontend now sends 'Rhythmethod_Group_Combined_LP' or '_CD'
-        if (distributor.startsWith('Rhythmethod_Group_Combined')) { // Updated check
-          // Iterate through specific sheets within the combined Excel file
+        if (distributor.startsWith('Rhythmethod_Group_Combined')) {
           for (const sheetName of Object.keys(excelSheetToDistributorMap)) {
-            const worksheet = workbook.getWorksheet(sheetName) // Get worksheet by its exact name
+            const worksheet = workbook.getWorksheet(sheetName)
 
             if (worksheet) {
               const currentDistributorForSheet =
                 excelSheetToDistributorMap[sheetName]
-              // Assume each sheet within the combined Excel has a single header row to skip
-              const numRowsToSkip = headerRowsToSkip[distributor] || 1; // Default to 1 if not specified
+              const numRowsToSkip = headerRowsToSkip[distributor] || 1
 
               worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-                if (rowNumber > numRowsToSkip) { // Skip determined number of header rows
+                if (rowNumber > numRowsToSkip) {
                   const rowData = mapXlsxRow(row, currentDistributorForSheet)
-
-                  // Apply formatType filter if specified
-                  // The frontend for Rhythmethod combined already sets formatType, so this is crucial.
                   if (
-                    formatType === 'All' || // 'All' for files like Flying Nun which don't auto-filter
-                    rowData.format?.toLowerCase() === formatType.toLowerCase() ||
-                    // For Rhythmethod combined, we explicitly rely on frontend formatType
-                    // and may need to ensure mapXlsxRow correctly sets rowData.format
-                    // based on content if not explicitly mapped from columns.
-                    // For now, it's assumed mapXlsxRow sets format based on column value or defaults.
-                    (distributor === 'Rhythmethod_Group_Combined_LP' && rowData.format?.toLowerCase() === 'lp') ||
-                    (distributor === 'Rhythmethod_Group_Combined_CD' && rowData.format?.toLowerCase() === 'cd')
+                    formatType === 'All' ||
+                    rowData.format?.toLowerCase() ===
+                      formatType.toLowerCase() ||
+                    (distributor === 'Rhythmethod_Group_Combined_LP' &&
+                      rowData.format?.toLowerCase() === 'lp') ||
+                    (distributor === 'Rhythmethod_Group_Combined_CD' &&
+                      rowData.format?.toLowerCase() === 'cd')
                   ) {
                     dataToInsert.push(rowData)
                   }
@@ -98,5 +77,97 @@ router.post('/import', checkJwt, async (req: Request, res: Response) => {
               })
             } else {
               console.warn(
-                `Worksheet '${sheetName}' not found in the uploaded combined Excel file. Skipping.`,
-            
+                `Worksheet '${sheetName}' not found in the uploaded combined Excel file. Skipping.`
+              )
+            }
+          }
+        } else {
+          // Logic for single-sheet Excel files (like Border Music, Collective, etc.)
+          const worksheet = workbook.getWorksheet(1)
+          if (worksheet) {
+            const numRowsToSkip = headerRowsToSkip[distributor] || 0
+            worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+              if (rowNumber > numRowsToSkip) {
+                const rowData = mapXlsxRow(row, distributor)
+                if (
+                  formatType === 'All' ||
+                  rowData.format?.toLowerCase() === formatType.toLowerCase()
+                ) {
+                  dataToInsert.push(rowData)
+                }
+              }
+            })
+          }
+        }
+      } catch (excelError) {
+        console.error('Error processing Excel file:', excelError)
+        return res.status(500).json({ message: 'Error processing Excel file.' })
+      }
+    } else if (fileExtension === '.csv') {
+      // --- CSV File Handling Logic ---
+      const numRowsToSkip = headerRowsToSkip[distributor] || 0
+      let rowCount = 0
+      const stream = fs
+        .createReadStream(filePath)
+        .pipe(csv())
+        .on('data', (row) => {
+          rowCount++
+          if (rowCount > numRowsToSkip) {
+            const rowData = mapCsvRow(row, distributor)
+            // Apply formatType filter if specified
+            if (
+              formatType === 'All' ||
+              rowData.format?.toLowerCase() === formatType.toLowerCase()
+            ) {
+              dataToInsert.push(rowData)
+            }
+          }
+        })
+        .on('end', async () => {
+          // All data has been collected, now insert into the database
+          const insertedCount = await db.importCatalogueData(
+            distributor.toLowerCase().replace(/[\s\(\)]/g, '_') + '_raw',
+            dataToInsert
+          )
+          res
+            .status(200)
+            .json({
+              message: `Successfully imported ${insertedCount} records from ${distributor}.`,
+            })
+        })
+        .on('error', (csvError) => {
+          console.error('Error processing CSV file:', csvError)
+          return res.status(500).json({ message: 'Error processing CSV file.' })
+        })
+      return // Return early for CSV to handle stream asynchronously
+    } else {
+      // Handle unsupported file types
+      return res
+        .status(400)
+        .json({
+          message: 'Unsupported file type. Please upload a .xlsx or .csv file.',
+        })
+    }
+
+    // --- Final Database Insertion for .xlsx files ---
+    // This part is for Excel files, which are processed synchronously
+    const rawTableName =
+      distributor.toLowerCase().replace(/[\s\(\)]/g, '_') + '_raw'
+    const insertedCount = await db.importCatalogueData(
+      rawTableName,
+      dataToInsert
+    )
+    res
+      .status(200)
+      .json({
+        message: `Successfully imported ${insertedCount} records from ${distributor}.`,
+      })
+  } catch (error) {
+    console.error('An error occurred during import:', error)
+    res
+      .status(500)
+      .json({ message: 'An unexpected error occurred during import.' })
+  }
+})
+
+export default router

@@ -1,19 +1,12 @@
-// server/auth0/index.ts
-import { auth, RequiredAuthProp } from 'express-oauth2-jwt-bearer'
-import * as dotenv from 'dotenv'
+import 'dotenv/config'
+import express, { Request } from 'express'
+import { auth } from 'express-oauth2-jwt-bearer'
 
-dotenv.config()
+const router = express.Router()
 
-const checkJwt = auth({
-  audience: process.env.https://rosscatv2.api,
-  issuerBaseURL: process.env.dev-sjiibctd2brp4c18.us.auth0.com,
-  tokenSigningAlg: 'RS256',
+export const checkJwt = auth({
+  audience: process.env.AUTH0_AUDIENCE,
+  issuerBaseURL: process.env.AUTH0_ISSUER_BASE_URL,
 })
 
-declare global {
-  namespace Express {
-    export interface Request extends RequiredAuthProp {}
-  }
-}
-
-export default checkJwt
+export default router

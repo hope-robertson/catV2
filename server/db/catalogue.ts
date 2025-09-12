@@ -1,8 +1,7 @@
 // server/db/catalogue.ts
 
 import knex from '../db/connection.js' // Ensure this path is correct for your Knex connection
-import { insertBatched } from '../utils' // Import the batched insert utility
-import { CatalogueRow, MasterCatalogueRow } from '../types/catalogue.js' // NEW: Import interfaces from shared types file
+import { CatalogueRow, MasterCatalogueRow } from '../types/catalogue.js' // Import interfaces from shared types file
 
 /**
  * Inserts catalogue data into the specified raw table.
@@ -19,11 +18,19 @@ export async function importCatalogueData(
   try {
     // --- Clear existing data in the table before inserting ---
     console.log(`Clearing existing data from table: ${tableName}`)
-    await knex(tableName).del() // Or .truncate() for faster, non-transactional clearing if supported and safe
+    await knex(tableName).del()
 
-    // NEW: Use the batched insert utility
-    const insertedCount = await insertBatched(knex, tableName, data, 50) // Using a batch size of 50
-    return insertedCount // Return the total count from the batched insert
+    // NEW: Use Knex's built-in insert method to handle the array of objects
+    if (data.length > 0) {
+      const inserted = await knex(tableName).insert(data)
+      console.log(
+        `Successfully inserted ${inserted.length} records into ${tableName}`
+      )
+      return inserted.length
+    } else {
+      console.log(`No data to insert into ${tableName}.`)
+      return 0
+    }
   } catch (error) {
     console.error(`Error inserting data into ${tableName}:`, error)
     throw error
@@ -64,23 +71,22 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       const rawData = await knex(tableName).select('*')
       for (const item of rawData) {
         const masterItem: MasterCatalogueRow = {
-          imported_at: new Date(item.imported_at), // Ensure it's a Date object
-          distributor: item.distributor, // Original distributor
+          imported_at: new Date(item.imported_at),
+          distributor: item.distributor,
           artist: item.artist,
           title: item.title,
           label: item.label,
           format: item.format,
           released: item.released,
-          description: item.description, // Now compatible with string | null | undefined
+          description: item.description,
           barcode: item.barcode,
           catalogue_number: item.catalogue_number,
-          price: item.price || item.unit_sale_price_excl_gst, // Use price or Flying Nun's specific price
+          price: item.price || item.unit_sale_price_excl_gst,
           bin_location: item.bin_location,
           item_code: item.item_code,
           unit_sale_price_excl_gst: item.unit_sale_price_excl_gst,
-          source_distributor: item.distributor, // This is the source raw table's distributor
-          last_imported_at: new Date(), // Set current time for consolidation
-          // Discogs fields will be null initially
+          source_distributor: item.distributor,
+          last_imported_at: new Date(),
           discogs_release_id: null,
           discogs_master_id: null,
           discogs_release_date: null,
@@ -88,9 +94,9 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           styles: null,
           image_url: null,
           tracklist: null,
+          id: 0,
         }
 
-        // Simple deduplication logic: prioritize by barcode, then by artist/title/format
         const key =
           masterItem.barcode ||
           `${masterItem.artist}-${masterItem.title}-${masterItem.format}`
@@ -102,14 +108,10 @@ export async function consolidateRawDataToMaster(): Promise<number> {
 
     const itemsToInsert = Array.from(uniqueItems.values())
     if (itemsToInsert.length > 0) {
-      // Insert in batches to avoid overwhelming the database with too many inserts at once
-      const batchSize = 500 // Adjust batch size as needed
-      for (let i = 0; i < itemsToInsert.length; i += batchSize) {
-        const batch = itemsToInsert.slice(i, i + batchSize)
-        // Use Knex's batchInsert for master_catalogue as well for efficiency
-        const result = await knex('master_catalogue').insert(batch)
-        totalInserted += result.length // Knex's insert/batchInsert might return different things, assuming length for count
-      }
+      // Use Knex's batchInsert for efficiency with large datasets
+      // Knex will handle creating the batches for you
+      await knex.batchInsert('master_catalogue', itemsToInsert, 500)
+      totalInserted = itemsToInsert.length
     }
 
     console.log(
