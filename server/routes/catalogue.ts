@@ -1,13 +1,13 @@
 // server/routes/catalogue.ts
 
 import { Router, Request, Response } from 'express'
-import checkJwt from '../auth0' // Assuming checkJwt middleware is here
+import checkJwt from '../../server/auth0/index.js' // Assuming checkJwt middleware is here
 import * as db from '../db/catalogue.ts' // Your database functions
 import exceljs from 'exceljs'
 import path from 'path'
 import fs from 'fs' // For reading the uploaded file stream
 import csv from 'csv-parser' // For parsing CSV files
-import { mapXlsxRow, mapCsvRow, CatalogueRow } from './catalogueMapping' // Import mapping functions and CatalogueRow interface
+import { mapXlsxRow, mapCsvRow, CatalogueRow } from './catalogueMapping.js' // Import mapping functions and CatalogueRow interface
 
 const router = Router()
 
