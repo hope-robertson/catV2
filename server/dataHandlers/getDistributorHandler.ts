@@ -1,87 +1,86 @@
 // server/dataHandlers/getDistributorHandler.ts
-import {
-  DistributorConfig,
-  DistributorHandler,
-  CatalogueRow,
-} from '../types/catalogue.js' // Ensure CatalogueRow is imported
+
+import { DistributorConfig, DistributorHandler } from '../types/catalogue.js'
 import { processExcelRows, getWorksheet } from '../utils/excelHelpers.js'
 import { processCsvRows } from '../utils/csvHelpers.js'
 
 import { mapBorderMusicRow } from './distributorHandlers/borderMusicHandler.js'
 import { mapCollectiveRow } from './distributorHandlers/collectiveHandler.js'
 import { mapFlyingNunRow } from './distributorHandlers/flyingNunHandler.js'
-import {
-  handleRhythmethodGroupUpload,
-  mapRhythmethodGroupRow,
-} from './distributorHandlers/rhythmethodGroupHandler.js' // Import mapRhythmethodGroupRow too
-import { mapSouthboundRow } from './distributorHandlers/southboundHandler.js' // Import Southbound handler
+import { mapSouthboundRow } from './distributorHandlers/southboundHandler.js'
+import { handleRhythmethodGroupUpload } from './distributorHandlers/rhythmethodGroupHandler.js'
 
 // Centralized configuration for all distributors
 const distributorConfigurations: DistributorConfig[] = [
   {
     name: 'Border Music',
     value: 'Border Music',
+    rawTableName: 'border_music_raw',
     fileType: 'xlsx',
     accept:
       '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
-    headerRowsToSkip: 3, // Headers on Row 3, data on Row 4
+    headerRowsToSkip: 3,
   },
   {
     name: 'Flying Nun Records Limited',
     value: 'Flying Nun Records Limited',
+    rawTableName: 'flying_nun_records_limited_raw',
     fileType: 'csv',
     accept: '.csv',
-    headerRowsToSkip: 4, // Skip first 4 lines before CSV data
-    requiresFormatFilter: true, // Frontend filter needed for this one
+    headerRowsToSkip: 4,
+    requiresFormatFilter: true,
   },
   {
     name: 'Southbound',
     value: 'Southbound',
+    rawTableName: 'southbound_instock_raw',
     fileType: 'xlsx',
     accept:
       '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
-    headerRowsToSkip: 7, // Headers on Row 5, data on Row 8 (so skip 7 rows)
-    requiresFormatFilter: true, // Frontend filter needed for this one
+    headerRowsToSkip: 7,
+    requiresFormatFilter: true,
   },
   {
     name: 'Collective (LP)',
     value: 'Collective (LP)',
+    rawTableName: 'collective_lp_raw',
     fileType: 'xlsx',
     accept:
       '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
-    headerRowsToSkip: 1, // Headers on Row 1, data on Row 2
-    requiresFormatFilter: true, // Frontend filter needed for this one
+    headerRowsToSkip: 1,
+    requiresFormatFilter: true,
   },
   {
     name: 'Collective (CD)',
     value: 'Collective (CD)',
+    rawTableName: 'collective_cd_raw',
     fileType: 'xlsx',
     accept:
       '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
-    headerRowsToSkip: 1, // Headers on Row 1, data on Row 2
-    requiresFormatFilter: true, // Frontend filter needed for this one
+    headerRowsToSkip: 1,
+    requiresFormatFilter: true,
   },
   {
     name: 'Rhythmethod Group (Combined Excel - LPs)',
     value: 'Rhythmethod_Group_Combined_LP',
+    rawTableName: 'rhythmethod_group_combined_raw',
     fileType: 'xlsx',
     accept:
       '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
-    headerRowsToSkip: 2, // Headers on Row 2, data on Row 3 (applies to each sub-sheet)
-    // No requiresFormatFilter as the value itself implies LP
+    headerRowsToSkip: 2,
   },
   {
     name: 'Rhythmethod Group (Combined Excel - CDs)',
     value: 'Rhythmethod_Group_Combined_CD',
+    rawTableName: 'rhythmethod_group_combined_raw',
     fileType: 'xlsx',
     accept:
       '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
-    headerRowsToSkip: 2, // Headers on Row 2, data on Row 3 (applies to each sub-sheet)
-    // No requiresFormatFilter as the value itself implies CD
+    headerRowsToSkip: 2,
   },
 ]
 
-// Function to get the handler and config for a given distributor
+// The 'export' keyword here makes the function available for other files to import
 export function getDistributorConfig(
   distributorValue: string
 ): DistributorConfig | undefined {
@@ -90,7 +89,6 @@ export function getDistributorConfig(
   )
 }
 
-// Function to get the appropriate data processing handler based on distributor config
 export function getDistributorDataHandler(
   config: DistributorConfig
 ): DistributorHandler {
@@ -103,7 +101,6 @@ export function getDistributorDataHandler(
           worksheet,
           config.headerRowsToSkip as number,
           mapBorderMusicRow,
-          config.value, // Pass the actual distributor value for mapping
           formatType
         )
       }
@@ -113,7 +110,6 @@ export function getDistributorDataHandler(
           filePath,
           config.headerRowsToSkip as number,
           mapFlyingNunRow,
-          config.value, // Pass the actual distributor value for mapping
           formatType
         )
       }
@@ -125,7 +121,6 @@ export function getDistributorDataHandler(
           worksheet,
           config.headerRowsToSkip as number,
           mapSouthboundRow,
-          config.value, // Pass the actual distributor value for mapping
           formatType
         )
       }
@@ -134,18 +129,15 @@ export function getDistributorDataHandler(
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
         if (!worksheet) throw new Error('Worksheet not found for Collective')
-        // Pass the specific Collective distributor value to the map function
         return processExcelRows(
           worksheet,
           config.headerRowsToSkip as number,
-          (row) => mapCollectiveRow(row, config.value), // Pass config.value as distributor to mapCollectiveRow
-          config.value, // Pass the actual distributor value for mapping
+          (row) => mapCollectiveRow(row, config.value),
           formatType
         )
       }
     case 'Rhythmethod_Group_Combined_LP':
     case 'Rhythmethod_Group_Combined_CD':
-      // This handler is already a full processing pipeline for the combined file
       return handleRhythmethodGroupUpload
     default:
       throw new Error(
