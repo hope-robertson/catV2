@@ -56,6 +56,7 @@ export type DistributorHandler = (
 
 // Define a type for distributor specific configurations
 export interface DistributorConfig {
+  rawTableName: any
   name: string // Display name for the frontend
   value: string // The value sent from the frontend (used for internal logic)
   fileType: 'xlsx' | 'csv'

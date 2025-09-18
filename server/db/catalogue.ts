@@ -16,11 +16,11 @@ export async function importCatalogueData(
   data: CatalogueRow[] // Use the CatalogueRow interface for type safety
 ): Promise<number> {
   try {
-    // --- Clear existing data in the table before inserting ---
+    // This is the line that clears the table before inserting
     console.log(`Clearing existing data from table: ${tableName}`)
     await knex(tableName).del()
 
-    // NEW: Use Knex's built-in insert method to handle the array of objects
+    // Use Knex's built-in insert method to handle the array of objects
     if (data.length > 0) {
       const inserted = await knex(tableName).insert(data)
       console.log(
