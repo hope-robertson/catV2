@@ -1,7 +1,7 @@
 // server/routes/catalogue.ts
 
 import { Router, Request, Response } from 'express'
-import checkJwt from '../auth0/index.js'
+// --- DELETE THIS LINE: import checkJwt from '../auth0/index.js' ---
 import * as db from '../db/catalogue.js'
 import {
   getDistributorConfig,
@@ -12,7 +12,9 @@ import fs from 'fs'
 
 const router = Router()
 
-router.post('/import', checkJwt, async (req: Request, res: Response) => {
+// MODIFIED: Removed 'checkJwt' from the middleware list.
+// It is now applied in server/index.ts to the entire router.
+router.post('/import', async (req: Request, res: Response) => {
   try {
     const filename = req.body.filename as string
     const distributorValue = req.body.distributor as string
@@ -50,11 +52,9 @@ router.post('/import', checkJwt, async (req: Request, res: Response) => {
       dataToInsert
     )
 
-    res
-      .status(200)
-      .json({
-        message: `Successfully imported ${insertedCount} records from ${config.name}.`,
-      })
+    res.status(200).json({
+      message: `Successfully imported ${insertedCount} records from ${config.name}.`,
+    })
   } catch (error) {
     console.error('An error occurred during import:', error)
     res
