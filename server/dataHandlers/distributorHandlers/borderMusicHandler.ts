@@ -11,7 +11,7 @@ export function mapBorderMusicRow(row: exceljs.Row): CatalogueRow {
     catalogue_number: (row.getCell(3).value as string | undefined) || null, // Column C: Catalogue Number
     barcode: (row.getCell(4).value as string | undefined) || null, // Column D: Bar Code
     format: (row.getCell(5).value as string | undefined) || null, // Column E: Format
-    bin_location: (row.getCell(7).value as string | undefined) || null, // Column G: Bin
+    // REMOVED THIS LINE: bin_location: (row.getCell(7).value as string | undefined) || null, // Column G: Bin
     label: 'Various', // Static label
     description: null,
     released: null,
