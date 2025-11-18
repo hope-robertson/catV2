@@ -3,6 +3,9 @@ import exceljs from 'exceljs'
 import { CatalogueRow } from '../../types/catalogue.js'
 
 export function mapBorderMusicRow(row: exceljs.Row): CatalogueRow {
+  // Capture the value from Column G (Bin)
+  const binValue = row.getCell(7).value as string | undefined
+
   const rowData: CatalogueRow = {
     imported_at: new Date(),
     distributor: 'Border Music',
@@ -11,7 +14,11 @@ export function mapBorderMusicRow(row: exceljs.Row): CatalogueRow {
     catalogue_number: (row.getCell(3).value as string | undefined) || null, // Column C: Catalogue Number
     barcode: (row.getCell(4).value as string | undefined) || null, // Column D: Bar Code
     format: (row.getCell(5).value as string | undefined) || null, // Column E: Format
-    // REMOVED THIS LINE: bin_location: (row.getCell(7).value as string | undefined) || null, // Column G: Bin
+    // The explicit bin_location field is still removed, but we map its content:
+
+    // ⭐ NEW FIELD: Maps 'NZ' (or 'nz') to true, anything else to false/null
+    is_nz_music: !!(binValue && binValue.toUpperCase().includes('NZ')),
+
     label: 'Various', // Static label
     description: null,
     released: null,

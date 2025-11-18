@@ -5,11 +5,7 @@ import { CatalogueRow, MasterCatalogueRow } from '../types/catalogue.js' // Impo
 
 /**
  * Inserts catalogue data into the specified raw table.
- * Deletes all existing data in the table before inserting new data.
- * This effectively overwrites the table with the new import.
- * @param tableName The name of the raw table (e.g., 'southbound_raw').
- * @param data An array of CatalogueRow objects to insert.
- * @returns The number of records inserted.
+ * ... (importCatalogueData function remains unchanged as the batch insert fix is already applied) ...
  */
 export async function importCatalogueData(
   tableName: string,
@@ -45,12 +41,7 @@ export async function importCatalogueData(
 
 /**
  * Consolidates data from all raw distributor tables into the master_catalogue table.
- * This function will clear the master_catalogue table and then re-populate it.
- * It handles potential duplicates by prioritizing newer imports or specific distributors.
- * For now, it will simply insert all unique items, prioritizing by barcode if present.
- *
- * NOTE: This is a basic consolidation. More advanced logic for merging (e.g., updating
- * existing entries rather than just re-inserting) would be added here later.
+ * ...
  * @returns The number of records inserted into the master_catalogue.
  */
 export async function consolidateRawDataToMaster(): Promise<number> {
@@ -91,6 +82,10 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           bin_location: item.bin_location,
           item_code: item.item_code,
           unit_sale_price_excl_gst: item.unit_sale_price_excl_gst,
+
+          // ⭐ NEW FIELD: Copy the value from the raw table item to the master item
+          is_nz_music: item.is_nz_music,
+
           source_distributor: item.distributor,
           last_imported_at: new Date(),
           discogs_release_id: null,
@@ -131,11 +126,7 @@ export async function consolidateRawDataToMaster(): Promise<number> {
 }
 
 /**
- * Fetches all entries from the new 'master_catalogue' table, with optional filters.
- * This is the primary function for displaying consolidated catalogue data.
- * @param distributor Optional: Filter by source_distributor.
- * @param format Optional: Filter by format (e.g., 'LP', 'CD').
- * @returns An array of MasterCatalogueRow objects.
+ * ... (getAllMasterCatalogue and getAllSouthboundCatalogue functions remain unchanged) ...
  */
 export async function getAllMasterCatalogue(
   distributor?: string,
@@ -163,8 +154,7 @@ export async function getAllMasterCatalogue(
 
 /**
  * Fetches all raw catalogue entries specifically from the 'southbound_instock_raw' table.
- * (This function can be kept for debugging/specific raw table access, but the frontend
- * will primarily use getAllMasterCatalogue for display).
+ * ...
  * @returns An array of CatalogueRow objects from the southbound_instock_raw table.
  */
 export async function getAllSouthboundCatalogue(): Promise<CatalogueRow[]> {

@@ -20,6 +20,8 @@ export interface CatalogueRow {
   // Specific to Flying Nun, if you need to retain it raw before consolidation:
   item_code?: string | null
   unit_sale_price_excl_gst?: number | null
+  // ⭐ NEW FIELD: To capture NZ music status
+  is_nz_music?: boolean | null
 }
 
 export interface MasterCatalogueRow extends CatalogueRow {
@@ -33,6 +35,8 @@ export interface MasterCatalogueRow extends CatalogueRow {
   styles?: string | null // Comma-separated string
   image_url?: string | null
   tracklist?: string | null // Stored as JSON string
+  // ⭐ NEW FIELD: To capture NZ music status
+  is_nz_music?: boolean | null
 }
 
 export interface CustomError {
