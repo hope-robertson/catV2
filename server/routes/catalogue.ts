@@ -9,6 +9,15 @@ import {
 } from '../dataHandlers/getDistributorHandler.js'
 import path from 'path'
 import fs from 'fs'
+// ------------------------------------------------------------------
+// NEW IMPORTS TO FIX REFERENCEERROR
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
+
+// NEW DEFINITIONS TO CREATE __dirname IN ESM CONTEXT
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
+// ------------------------------------------------------------------
 
 const router = Router()
 
@@ -26,6 +35,7 @@ router.post('/import', async (req: Request, res: Response) => {
         .json({ message: 'Filename and distributor are required.' })
     }
 
+    // This line now correctly uses the defined __dirname
     const filePath = path.join(__dirname, '..', '..', 'uploads', filename)
     const fileExists = fs.existsSync(filePath)
     if (!fileExists) {
