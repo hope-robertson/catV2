@@ -22,11 +22,17 @@ export async function importCatalogueData(
 
     // Use Knex's built-in insert method to handle the array of objects
     if (data.length > 0) {
-      const inserted = await knex(tableName).insert(data)
+      // ⭐ MODIFIED: Use batchInsert to prevent "too many terms in compound SELECT" SQLite error ⭐
+      const BATCH_SIZE = 500
+
+      // knex.batchInsert handles the batching loop for us, splitting the large insert into chunks
+      await knex.batchInsert(tableName, data, BATCH_SIZE)
+
       console.log(
-        `Successfully inserted ${inserted.length} records into ${tableName}`
+        `Successfully inserted ${data.length} records into ${tableName} using batch insert.`
       )
-      return inserted.length
+      // Return the input data length as batchInsert doesn't consistently return inserted count across databases
+      return data.length
     } else {
       console.log(`No data to insert into ${tableName}.`)
       return 0
