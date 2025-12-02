@@ -2,122 +2,51 @@
 import exceljs from 'exceljs'
 import { CatalogueRow } from '../../types/catalogue.js'
 
-// Helper function to safely get and trim a string value from a cell
-function getSafeTrimmedString(cell: exceljs.Cell): string | null {
-  if (cell.value === null || cell.value === undefined) {
-    return null
-  }
-
-  let rawString: string
-
-  if (typeof cell.value === 'string') {
-    rawString = cell.value
-  } else if (
-    typeof cell.value === 'object' &&
-    Object.prototype.hasOwnProperty.call(cell.value, 'text')
-  ) {
-    rawString = String((cell.value as { text: string }).text)
-  } else {
-    rawString = String(cell.value)
-  }
-
-  const trimmed = rawString.trim()
-  if (trimmed === '') {
-    return null
-  }
-
-  const unescapedString = trimmed.replace(/''/g, "'")
-
-  return unescapedString
-}
-
+/**
+ * Maps a single row from the Southbound spreadsheet to the CatalogueRow object structure.
+ * Data starts on row 8. Headers are on row 5.
+ * @param row The ExcelJS row object.
+ * @returns A structured CatalogueRow object.
+ */
 export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
-  console.log(`[Southbound Handler] Processing row number: ${row.number}`)
+    // Note: Column index starts at 1 in ExcelJS.
+    
+    // Helper to get text value safely
+    const getText = (col: number) => (row.getCell(col).value as string | undefined) || null;
 
-  const formatCell = row.getCell(6)
-  let formatValue: string | null = null
-
-  console.log(
-    `[Southbound Handler] Row ${row.number}, Column F (Format) raw value:`,
-    formatCell.value
-  )
-  console.log(
-    `[Southbound Handler] Row ${row.number}, Column F (Format) type:`,
-    typeof formatCell.value
-  )
-
-  if (formatCell.value !== null && formatCell.value !== undefined) {
-    if (typeof formatCell.value === 'string') {
-      formatValue = formatCell.value.trim()
-    } else if (typeof formatCell.value === 'number') {
-      console.warn(
-        `[Southbound Handler] Row ${row.number}: Format cell (F) contains a number. Converting to string.`
-      )
-      formatValue = String(formatCell.value).trim()
-    } else if (
-      typeof formatCell.value === 'object' &&
-      Object.prototype.hasOwnProperty.call(formatCell.value, 'text')
-    ) {
-      console.warn(
-        `[Southbound Handler] Row ${row.number}: Format cell (F) contains an object with 'text' property. Extracting text.`
-      )
-      formatValue = String((formatCell.value as { text: string }).text).trim()
-    } else if (typeof formatCell.value === 'boolean') {
-      console.warn(
-        `[Southbound Handler] Row ${row.number}: Format cell (F) contains a boolean. Converting to string.`
-      )
-      formatValue = String(formatCell.value).trim()
+    // Helper to parse price value safely
+    const getPrice = (col: number) => {
+        const priceValue = row.getCell(col).value;
+        if (typeof priceValue === 'number') return priceValue;
+        if (typeof priceValue === 'string') {
+            // Attempt to parse string after removing currency symbols if necessary
+            const cleanPrice = parseFloat(priceValue.replace(/[^0-9.]/g, ''));
+            return isNaN(cleanPrice) ? null : cleanPrice;
+        }
+        return null;
     }
-  }
-  if (formatValue === '') {
-    formatValue = null
-  }
-  console.log(
-    `[Southbound Handler] Row ${row.number}, Processed Format value:`,
-    formatValue
-  )
 
-  const rowData: CatalogueRow = {
-    imported_at: new Date(),
-    distributor: 'Southbound',
-    catalogue_number: getSafeTrimmedString(row.getCell(1)), // Column A: Cat No
-    description: getSafeTrimmedString(row.getCell(2)), // Column B: Description
-    artist: getSafeTrimmedString(row.getCell(3)), // Column C: Artist
-    title: getSafeTrimmedString(row.getCell(4)), // Column D: Title
-    format: formatValue, // Use the already processed formatValue here
-    barcode: getSafeTrimmedString(row.getCell(7)), // Column G: BarCode
-    label: 'Southbound', // Static label
-    price: null,
-    released: null,
-    discogs_release_date: null,
-    genres: null,
-    bin_location: null,
-    item_code: null,
-    unit_sale_price_excl_gst: null,
-  }
-
-  const priceCell = row.getCell(5)
-  const priceValue = priceCell.value
-  console.log(
-    `[Southbound Handler] Row ${row.number}, Column E (Price) raw value:`,
-    priceValue
-  )
-  console.log(
-    `[Southbound Handler] Row ${row.number}, Column E (Price) type:`,
-    typeof priceValue
-  )
-
-  rowData.price =
-    typeof priceValue === 'number'
-      ? priceValue
-      : typeof priceValue === 'string'
-      ? parseFloat(priceValue)
-      : null
-
-  console.log(
-    `[Southbound Handler] Row ${row.number}, Processed Price value:`,
-    rowData.price
-  )
-
-  return rowData
+    const rowData: CatalogueRow = {
+        imported_at: new Date(),
+        distributor: 'Southbound Distribution Limited',
+        
+        // Mapped from spreadsheet columns (based on your analysis)
+        catalogue_number: getText(1), // Column 1: Cat No
+        description: getText(2),      // Column 2: Description
+        artist: getText(3),           // Column 3: Artist
+        title: getText(4),            // Column 4: Title
+        price: getPrice(5),           // Column 5: Dealer (Price)
+        format: getText(6),           // Column 6: Format
+        barcode: getText(7),          // Column 7: BarCode
+        label: getText(8),            // Column 8: Label
+        genres: getText(9),           // Column 9: Genre
+        
+        // Metadata fields (Set explicitly, even if null)
+        is_nz_music: false, // Southbound data does not provide this flag
+        bin_location: null,
+        item_code: null,
+        unit_sale_price_excl_gst: null,
+        released: null
+    }
+    return rowData;
 }

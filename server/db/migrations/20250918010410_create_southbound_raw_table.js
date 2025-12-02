@@ -4,21 +4,23 @@
 export async function up(knex) {
   return knex.schema.createTable('southbound_instock_raw', (table) => {
     table.increments('id').primary()
-    table.text('catalogue_number').nullable()
-    table.text('description').nullable()
-    table.text('artist').nullable()
-    table.text('title').nullable()
-    table.decimal('price', 10, 2).nullable()
-    table.text('format').nullable()
-    table.text('barcode').nullable()
-    table.text('distributor').nullable()
-    table.text('label').nullable()
-    table.text('released').nullable()
-    table.text('bin_location').nullable()
-    table.text('item_code').nullable()
-    table.decimal('unit_sale_price_excl_gst', 10, 2).nullable()
-    table.text('genres').nullable()
-    table.text('discogs_release_date').nullable()
+    
+    // Core data (from spreadsheet columns A-I)
+    table.text('catalogue_number').nullable() // Cat No
+    table.text('description').nullable()      // Description
+    table.text('artist').nullable()           // Artist
+    table.text('title').nullable()            // Title
+    table.decimal('price', 10, 2).nullable()  // Dealer (contains price)
+    table.text('format').nullable()           // Format
+    table.text('barcode').nullable()          // BarCode
+    table.text('label').nullable()            // Label
+    table.text('genres').nullable()           // Genre
+    
+    // Application Metadata (set by code, may be null/false)
+    // We add this for schema consistency, but the Southbound mapper will set it to false/null
+    table.boolean('is_nz_music').defaultTo(false)
+    
+    table.text('distributor').notNullable() // Set by code
     table.timestamp('imported_at').defaultTo(knex.fn.now())
   })
 }
