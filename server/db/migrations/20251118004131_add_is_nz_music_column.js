@@ -4,7 +4,7 @@
  */
 export async function up(knex) {
   // Add column to the raw table (if you want to track it at the raw level)
-  // We are commenting this out because the column is now included in the 
+  // commenting this out because the column is now included in the
   // 'create_border_music_raw_table' migration.
   /*
   if (await knex.schema.hasTable('border_music_raw')) {
