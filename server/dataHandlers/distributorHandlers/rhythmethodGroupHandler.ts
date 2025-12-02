@@ -19,13 +19,10 @@ export function mapRhythmethodGroupRow(
     catalogue_number: (row.getCell(2).value as string | undefined) || null, // Column B: Code
     barcode: (row.getCell(4).value as string | undefined) || null, // Column D: Barcode
     
-    // ⭐ NEW FIELDS & MAPPING
     description: descriptionValue || null, // Store the full description
     is_nz_music: false, // Default to false (no NZ flag in this data)
-    // Map SOH (Column F) to stock_on_hand. Ensure it is a number.
     stock_on_hand: typeof stockValue === 'number' ? stockValue : null,
-    // ⭐ END NEW FIELDS & MAPPING
-
+    
     price: null, // Will be set below
     artist: null, // Will be set by parsing logic
     title: null, // Will be set by parsing logic
@@ -39,7 +36,7 @@ export function mapRhythmethodGroupRow(
     unit_sale_price_excl_gst: null,
   }
 
-  if (rowData.description) { // Use rowData.description which was just set
+  if (rowData.description) { 
     // Updated regex to handle more variations and explicitly check for format codes
     const regex =
       /(.+?)\s*-\s*(.+?)(?:\s*(\d+LP|\d+CD|CD|LP|7"|10"|12"|Cassette|Tape|DVD|Blu-ray|Other|EP))?$/i
@@ -95,7 +92,6 @@ export function mapRhythmethodGroupRow(
 }
 
 // Helper to map sheet names to the actual distributor names for the DB
-// This is local to this file as it's specific to Rhythmethod Group combined file
 function getActualDistributorFromSheet(sheetName: string): string {
   if (sheetName.toLowerCase().includes('rm')) {
     return 'Rhythmethod (RM)'
@@ -113,8 +109,17 @@ export async function handleRhythmethodGroupUpload(
   formatType: 'All' | 'LP' | 'CD'
 ): Promise<CatalogueRow[]> {
   const allData: CatalogueRow[] = []
-  // Current sheets only include vinyl
-  const sheetsToProcess = ['RM Vinyl', 'Sony Vinyl', 'Warner Vinyl'] // Expected exact sheet names
+  
+  // ⭐ FINAL LIST: Processing both Vinyl and CD sheets
+  const sheetsToProcess = [
+    'RM Vinyl', 
+    'Sony Vinyl', 
+    'Warner Vinyl',
+    'RM CD', 
+    'Sony CD', 
+    'Warner CD'
+];
+
   const headerRowsToSkip = 2 // Headers on row 2, data on row 3
 
   const workbook = new exceljs.Workbook()
@@ -132,9 +137,9 @@ export async function handleRhythmethodGroupUpload(
       const sheetData = processExcelRows(
         worksheet,
         headerRowsToSkip,
-        (row, distributor) => mapRhythmethodGroupRow(row, distributor), // Pass distributor to mapper
-        actualDistributorForMap, // Pass the actual distributor name for this sheet
-        formatType // Pass the filter format to the helper
+        (row, distributor) => mapRhythmethodGroupRow(row, distributor), 
+        actualDistributorForMap,
+        formatType
       )
       allData.push(...sheetData)
     } else {
