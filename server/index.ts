@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 4000
 // Server Middleware
 server.use(express.json())
 server.use(express.static(Path.join(Path.resolve(), 'public')))
-server.use('/api/v1/upload', uploadRouter)
+server.use('/api/v1/upload', checkJwt, uploadRouter)
 
 // API Routes
 server.use('/api/v1/catalogue', checkJwt, catalogueRoutes) 
