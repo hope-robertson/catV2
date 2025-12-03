@@ -1,4 +1,4 @@
-// server/migrations/YYYYMMDDHHMMSS_create_master_catalogue_table.js
+// 20250729064702_create_master_catalogue_table.js
 
 /**
  * @param { import("knex").Knex } knex

@@ -1,3 +1,4 @@
+// 20250901031650_create_comics_table.js
 /**
  * @param { import("knex").Knex } knex
  * @returns { Promise<void> }

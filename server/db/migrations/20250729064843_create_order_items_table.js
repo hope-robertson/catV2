@@ -1,4 +1,4 @@
-// server/migrations/YYYYMMDDHHMMSS_create_order_items_table.js
+// 20250729064843_create_order_items_table.js
 
 /**
  * @param { import("knex").Knex } knex

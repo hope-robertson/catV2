@@ -1,3 +1,4 @@
+// 20250918010528_create_collective_raw_table.js
 /**
  * @param {import('knex').Knex} knex
  */

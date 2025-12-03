@@ -1,3 +1,4 @@
+// 20250906084213_create_wishlist_items_table.js
 /**
  * @param { import("knex").Knex } knex
  * @returns { Promise<void> }

@@ -1,10 +1,11 @@
+// 20251118010215_add_catalogue_number_to_raw.js
 /**
  * @param { import("knex").Knex } knex
  * @returns { Promise<void> }
  */
 export async function up(knex) {
   // Add catalogue_number column to the raw table
-  // ⛔ DEACTIVATED: This is now handled in the initial create_border_music_raw_table migration
+  // DEACTIVATED: This is now handled in the initial create_border_music_raw_table migration
   /*
   if (await knex.schema.hasTable('border_music_raw')) {
     await knex.schema.alterTable('border_music_raw', (table) => {

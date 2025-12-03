@@ -1,3 +1,4 @@
+// 20250901030544_create_customers_table.js
 /**
  * @param { import("knex").Knex } knex
  * @returns { Promise<void> }
