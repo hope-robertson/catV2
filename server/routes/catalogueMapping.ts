@@ -15,8 +15,7 @@ export interface CatalogueRow {
   barcode: string | null
   catalogue_number: string | null
   price: number | null
-  // 🔑 NEW FIELD: Added is_nz_music to the interface
-  is_nz_music: boolean | null 
+  // is_nz_music: boolean | null 
   bin_location: string | null
   item_code: string | null
   unit_sale_price_excl_gst: number | null
@@ -56,7 +55,7 @@ export function mapXlsxRow(
       : null,
     price: cell9Value && typeof cell9Value === 'number' ? cell9Value : null,
     // Setting is_nz_music to null by default here. Specific handlers (like Border Music) will override this.
-    is_nz_music: null,
+    // is_nz_music: null,
     bin_location: row.getCell(10).value ? String(row.getCell(10).value) : null,
     item_code: row.getCell(11).value ? String(row.getCell(11).value) : null,
     unit_sale_price_excl_gst:
@@ -94,7 +93,7 @@ export function mapCsvRow(row: CsvRow, distributor: string): CatalogueRow {
     catalogue_number: row['Catalogue Number'] || null,
     price: row['Price'] ? parseFloat(row['Price']) : null,
     // 🔑 NEW FIELD: Added is_nz_music to the CSV mapper
-    is_nz_music: null, 
+    // is_nz_music: null, 
     bin_location: row['Bin Location'] || null,
     item_code: row['Item Code'] || null,
     unit_sale_price_excl_gst: row['Unit Sale Price Excl GST']
