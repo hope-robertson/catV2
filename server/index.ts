@@ -1,41 +1,39 @@
-// server/index.ts
+// server/index.ts (TEMPORARY TROUBLESHOOTING FILE)
 
-// 1. LOAD DOTENV FIRST
 import * as dotenv from 'dotenv'
 dotenv.config()
-import uploadRouter from './routes/upload.js'
+// import uploadRouter from './routes/upload.js' // COMMENTED OUT
 
-// 2. IMPORT REMAINING MODULES
 import express from 'express'
-import * as Path from 'node:path'
+// import * as Path from 'node:path' // COMMENTED OUT
 
-import catalogueRoutes from './routes/catalogue.js'
-import aggregationRoutes from './routes/aggregation.js' // <== ADDED
-import { initializeCheckJwt } from './utils/auth.js' 
+// import catalogueRoutes from './routes/catalogue.js' // COMMENTED OUT
+// import aggregationRoutes from './routes/aggregation.js' // COMMENTED OUT
+import { initializeCheckJwt } from './utils/auth.js' // COMMENTED OUT
 
-// 3. INITIALIZE AUTH MIDDLEWARE (MUST happen here, AFTER dotenv.config())
-const checkJwt = initializeCheckJwt()
+const checkJwt = initializeCheckJwt() // COMMENTED OUT
 
 const server = express()
-const PORT = process.env.PORT || 4000
+const PORT = process.env.PORT || 3000
 
-// Server Middleware
-server.use(express.json())
-server.use(express.static(Path.join(Path.resolve(), 'public')))
-server.use('/api/v1/upload', checkJwt, uploadRouter)
+server.use(express.json()) // COMMENTED OUT
+// server.use(express.static(Path.join(Path.resolve(), 'public'))) // COMMENTED OUT
+// server.use('/api/v1/upload', uploadRouter) // COMMENTED OUT
 
-// API Routes
-server.use('/api/v1/catalogue', checkJwt, catalogueRoutes) 
-server.use('/api/v1/aggregation', checkJwt, aggregationRoutes) // <== ADDED AND PROTECTED
+// server.use('/api/v1/catalogue', checkJwt, catalogueRoutes) // COMMENTED OUT
+// server.use('/api/v1/aggregation', checkJwt, aggregationRoutes) // COMMENTED OUT
 
-// Serve the production front-end (if applicable)
+server.get('/', (req, res) => {
+  res.send('Core Server Is Running!')
+})
+
 if (process.env.NODE_ENV === 'production') {
-  server.get('*', (req, res) => {
-    res.sendFile(Path.resolve('public/index.html'))
-  })
+  // server.get('*', (req, res) => { // COMMENTED OUT
+  //   res.sendFile(Path.resolve('public/index.html')) // COMMENTED OUT
+  // })
 }
 
 // Start Server
-server.listen(PORT as number, '0.0.0.0', () => { // <== MODIFIED BIND ADDRESS
+server.listen(PORT as number, '0.0.0.0', () => {
   console.log(`Server listening on port ${PORT}`)
 })
