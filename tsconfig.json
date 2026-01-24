@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "target": "ES2022",
     "module": "NodeNext",
     "lib": ["ES2022", "DOM"],
@@ -18,8 +20,10 @@
   },
   "include": [
     "server/**/*.ts",
-    "client/**/*.ts",
-    "client/**/*.tsx",
+    "client/src/**/*.ts",
+    "client/src/**/*.tsx",
+    "client/apis/**/*.ts",
+    "client/models/**/*.ts",
     "knexfile.js"
   ],
   "exclude": ["node_modules", "dist"]

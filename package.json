@@ -4,12 +4,15 @@
   "description": "",
   "main": "server/index.ts",
   "type": "module",
-  "scripts": {
+"scripts": {
     "start": "node dist/server/index.js",
-    "dev": "nodemon --watch server --ext ts,tsx --exec tsx server/index.ts",
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "nodemon --watch server --ext ts,tsx --exec tsx server/index.ts",
+    "dev:client": "vite",
     "knex": "knex",
     "migrate": "knex migrate:latest",
     "seed": "knex seed:run",
+    "build": "vite build && tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -31,6 +34,7 @@
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.30.1",
     "sqlite3": "^5.1.7",
+    "superagent": "^10.3.0",
     "tailwindcss": "^3.4.17"
   },
   "devDependencies": {
@@ -40,6 +44,7 @@
     "@types/express": "^5.0.3",
     "@types/knex": "^0.16.1",
     "@types/multer": "^2.0.0",
+    "@types/superagent": "^8.1.9",
     "nodemon": "^3.1.10",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",
