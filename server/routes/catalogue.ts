@@ -1,7 +1,4 @@
-// server/routes/catalogue.ts
-
 import { Router, Request, Response } from 'express'
-// --- DELETE THIS LINE: import checkJwt from '../auth0/index.js' ---
 import * as db from '../db/catalogue.js'
 import {
   getDistributorConfig,
@@ -9,20 +6,52 @@ import {
 } from '../dataHandlers/getDistributorHandler.js'
 import path from 'path'
 import fs from 'fs'
-// ------------------------------------------------------------------
-// NEW IMPORTS TO FIX REFERENCEERROR
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
 
-// NEW DEFINITIONS TO CREATE __dirname IN ESM CONTEXT
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
-// ------------------------------------------------------------------
 
 const router = Router()
 
-// MODIFIED: Removed 'checkJwt' from the middleware list.
-// It is now applied in server/index.ts to the entire router.
+// --- SEARCH ROUTE ---
+// GET /api/v1/catalogue/search?query=pink&filter=all
+router.get('/search', async (req: Request, res: Response) => {
+  try {
+    const query = req.query.query as string
+    const filter = (req.query.filter as string) || 'all'
+
+    if (!query) {
+      return res.status(400).json({ message: 'Search query is required.' })
+    }
+
+    const results = await db.searchMasterCatalogue(query, filter)
+    res.status(200).json(results)
+  } catch (error) {
+    console.error('Search error:', error)
+    res.status(500).json({ message: 'Error performing search.' })
+  }
+})
+
+// --- RATING UPDATE ROUTE ---
+// PATCH /api/v1/catalogue/rating
+router.patch('/rating', async (req: Request, res: Response) => {
+  try {
+    const { id, rating } = req.body // id of the record and the new rating (0-3)
+
+    if (id === undefined || rating === undefined) {
+      return res.status(400).json({ message: 'ID and rating are required.' })
+    }
+
+    await db.updateRecordRating(Number(id), Number(rating))
+    res.status(200).json({ message: 'Rating updated successfully.' })
+  } catch (error) {
+    console.error('Update rating error:', error)
+    res.status(500).json({ message: 'Error updating rating.' })
+  }
+})
+
+// --- IMPORT ROUTE (Existing) ---
 router.post('/import', async (req: Request, res: Response) => {
   try {
     const filename = req.body.filename as string
@@ -35,7 +64,6 @@ router.post('/import', async (req: Request, res: Response) => {
         .json({ message: 'Filename and distributor are required.' })
     }
 
-    // This line now correctly uses the defined __dirname
     const filePath = path.join(__dirname, '..', '..', 'uploads', filename)
     const fileExists = fs.existsSync(filePath)
     if (!fileExists) {
@@ -49,17 +77,13 @@ router.post('/import', async (req: Request, res: Response) => {
         .json({ message: `Invalid distributor value: ${distributorValue}` })
     }
 
-    // Get the specific handler for this distributor
     const handler = getDistributorDataHandler(config)
-
-    // Use the handler to process the file and get the data
     const dataToInsert = await handler(filePath, formatType)
 
-    // Now, insert the data into the correct raw table
-    const rawTableName = config.rawTableName // Assume the config has a rawTableName property
+    const rawTableName = config.rawTableName
     const insertedCount = await db.importCatalogueData(
       rawTableName,
-      dataToInsert
+      dataToInsert,
     )
 
     res.status(200).json({
