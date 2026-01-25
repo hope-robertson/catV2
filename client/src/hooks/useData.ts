@@ -5,7 +5,7 @@ import {
   MasterCatalogueRow,
   UploadResponse,
   CustomError,
-} from '../../server/types/catalogue' // Adjust path as needed
+} from '../../../server/types/catalogue.js' // Adjust path as needed
 
 // Hook for importing data
 export function useImportData() {
@@ -24,7 +24,7 @@ export function useImportData() {
         }
       }
       return response.json()
-    }
+    },
   )
 }
 
@@ -46,6 +46,6 @@ export function useMasterCatalogue(distributor?: string, format?: string) {
         }
       }
       return response.json()
-    }
+    },
   )
 }

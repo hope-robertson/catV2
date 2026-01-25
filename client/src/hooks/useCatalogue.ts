@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { searchCatalogue, updateRating } from '../../apis/catalogue.js'
-import { MasterCatalogueRow } from '../../models/catalogue.js'
+import { searchCatalogue, updateRating } from '../apis/catalogue.js'
+import { MasterCatalogueRow } from '../models/catalogue.js'
 
 export function useCatalogue() {
   const [results, setResults] = useState<MasterCatalogueRow[]>([])

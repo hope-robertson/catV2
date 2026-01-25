@@ -1,7 +1,5 @@
 // client/src/App.tsx
 import React from 'react'
-import SearchBar from './components/SearchBar.js'
-import { useCatalogue } from './hooks/useCatalogue.js'
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import ImportData from './components/ImportData.js'
 import CatalogueList from './components/CatalogueList.js'
