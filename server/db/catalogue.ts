@@ -1,7 +1,7 @@
 // server/db/catalogue.ts
 
-import knex from './connection.js' // Ensure this path is correct for your Knex connection
-import { CatalogueRow, MasterCatalogueRow } from '../types/catalogue.js' // Import interfaces from shared types file
+import knex from './connection.js'
+import { CatalogueRow, MasterCatalogueRow } from '../types/catalogue.js'
 
 /**
  * Inserts catalogue data into the specified raw table.
@@ -82,9 +82,7 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           image_url: null,
           tracklist: null,
           id: 0,
-          // If you updated your MasterCatalogueRow type to include 'rating',
-          // you might need to initialize it here (e.g., rating: 0),
-          // otherwise the database default (0) will handle it on insert.
+          rating: 0, // Explicitly initializing rating
         }
 
         const key =
@@ -134,22 +132,8 @@ export async function getAllMasterCatalogue(
   }
 }
 
-export async function getAllSouthboundCatalogue(): Promise<CatalogueRow[]> {
-  try {
-    return await knex<CatalogueRow>('southbound_instock_raw').select('*')
-  } catch (error) {
-    console.error('Error fetching Southbound catalogue entries:', error)
-    throw error
-  }
-}
-
-// ------------------------------------------------------------------
-// ⭐ NEW FUNCTIONS ADDED BELOW ⭐
-// ------------------------------------------------------------------
-
 /**
  * Searches the master_catalogue table with weighted relevance.
- * Exact matches appear first, followed by "starts with", then general partial matches.
  */
 export async function searchMasterCatalogue(
   query: string,
@@ -158,7 +142,6 @@ export async function searchMasterCatalogue(
   try {
     return await knex<MasterCatalogueRow>('master_catalogue')
       .select('*')
-      // Weighted Relevance Logic using CASE statement
       .select(
         knex.raw(
           `CASE 
@@ -176,7 +159,6 @@ export async function searchMasterCatalogue(
         } else if (filter === 'title') {
           builder.where('title', 'like', `%${query}%`)
         } else {
-          // Default "All" search: checks artist, title, AND barcode
           builder
             .where('artist', 'like', `%${query}%`)
             .orWhere('title', 'like', `%${query}%`)
@@ -204,4 +186,37 @@ export async function updateRecordRating(
     console.error(`Error updating rating for record ID ${id}:`, error)
     throw error
   }
+}
+
+export async function getAllRawData(): Promise<any[]> {
+  const rawTableNames = [
+    'flying_nun_records_limited_raw',
+    'border_music_raw',
+    'collective_lp_raw',
+    'collective_cd_raw',
+    'southbound_instock_raw',
+    'rhythmethod_group_combined_raw',
+  ]
+
+  let allData: any[] = []
+  for (const table of rawTableNames) {
+    const data = await knex(table).select('*')
+    allData = [...allData, ...data]
+  }
+  return allData
+}
+
+/**
+ * Inserts scrubbed data into the master catalogue.
+ * Uses onConflict to avoid crashing on duplicate barcodes.
+ */
+export async function insertToMaster(data: any[]): Promise<number> {
+  if (data.length === 0) return 0
+
+  // We use batch insert for speed.
+  // Note: if you want to handle duplicate barcodes, you would
+  // typically use .onConflict('barcode').merge() here if using Postgres.
+  // For SQLite, batchInsert is safer for bulk operations.
+  await knex.batchInsert('master_catalogue', data, 500)
+  return data.length
 }

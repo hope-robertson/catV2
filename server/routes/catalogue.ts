@@ -4,6 +4,7 @@ import {
   getDistributorConfig,
   getDistributorDataHandler,
 } from '../dataHandlers/getDistributorHandler.js'
+import { scrubber } from '../utils/scrubber.js' // Added Scrubber import
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
@@ -15,7 +16,6 @@ const __dirname = dirname(__filename)
 const router = Router()
 
 // --- SEARCH ROUTE ---
-// GET /api/v1/catalogue/search?query=pink&filter=all
 router.get('/search', async (req: Request, res: Response) => {
   try {
     const query = req.query.query as string
@@ -34,10 +34,9 @@ router.get('/search', async (req: Request, res: Response) => {
 })
 
 // --- RATING UPDATE ROUTE ---
-// PATCH /api/v1/catalogue/rating
 router.patch('/rating', async (req: Request, res: Response) => {
   try {
-    const { id, rating } = req.body // id of the record and the new rating (0-3)
+    const { id, rating } = req.body
 
     if (id === undefined || rating === undefined) {
       return res.status(400).json({ message: 'ID and rating are required.' })
@@ -51,12 +50,12 @@ router.patch('/rating', async (req: Request, res: Response) => {
   }
 })
 
-// --- IMPORT ROUTE (Existing) ---
+// --- IMPORT ROUTE (File to Staging) ---
 router.post('/import', async (req: Request, res: Response) => {
   try {
     const filename = req.body.filename as string
     const distributorValue = req.body.distributor as string
-    const formatType = (req.body.formatType || 'All') as 'LP' | 'CD' | 'All'
+    const formatType = (req.query.formatType || 'All') as 'LP' | 'CD' | 'All'
 
     if (!filename || !distributorValue) {
       return res
@@ -94,6 +93,42 @@ router.post('/import', async (req: Request, res: Response) => {
     res
       .status(500)
       .json({ message: 'An unexpected error occurred during import.' })
+  }
+})
+
+// --- CONSOLIDATION ROUTE (Staging to Master) ---
+router.post('/consolidate', async (req: Request, res: Response) => {
+  try {
+    // 1. Fetch all raw data from staging
+    const rawData = await db.getAllRawData()
+
+    if (!rawData || rawData.length === 0) {
+      return res
+        .status(400)
+        .json({ message: 'No data in staging to consolidate.' })
+    }
+
+    // 2. Scrub and Map
+    const cleanData = rawData.map((row: any) => ({
+      artist: scrubber.artist(row.artist),
+      title: scrubber.text(row.title),
+      barcode: scrubber.barcode(row.barcode),
+      format: scrubber.text(row.format),
+      is_nz_music: scrubber.boolean(row.is_nz_music),
+      distributor: row.distributor || 'Unknown',
+      rating: 0,
+    }))
+
+    // 3. Move to Master
+    const count = await db.insertToMaster(cleanData)
+
+    res.status(200).json({
+      message: `Successfully scrubbed and moved ${count} records to Master Catalogue.`,
+      count,
+    })
+  } catch (error) {
+    console.error('Consolidation error:', error)
+    res.status(500).json({ message: 'Failed to consolidate data.' })
   }
 })
 
