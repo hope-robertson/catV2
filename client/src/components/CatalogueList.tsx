@@ -16,7 +16,7 @@ export default function CatalogueList() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Crate Search</h2>
+        <h2 className="text-2xl font-bold text-gray-800">Catalogue Search</h2>
         <span className="text-sm text-gray-500">
           {results.length} results found
         </span>
