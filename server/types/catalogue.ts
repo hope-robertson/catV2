@@ -18,25 +18,25 @@ export interface CatalogueRow {
   discogs_release_date?: string | null
   genres?: string | null // Specific to Flying Nun, if you need to retain it raw before consolidation:
   item_code?: string | null
-  unit_sale_price_excl_gst?: number | null // ⭐ NEW FIELD: To capture NZ music status
-  is_nz_music?: boolean | null // ⭐ NEW FIELD: Added for Stock On Hand data from distributors (Rhythmethod Group)
+  unit_sale_price_excl_gst?: number | null
+  is_nz_music?: boolean | null
   stock_on_hand?: number | null
 }
 
 export interface MasterCatalogueRow extends CatalogueRow {
-  id: number // MasterCatalogueRow will always have an ID from DB
-  source_distributor: string // The distributor from which this entry was originally imported
-  last_imported_at: Date // When this entry was last updated from a raw import
+  id: number
+  source_distributor: string
+  last_imported_at: Date
   discogs_release_id?: number | null
   discogs_master_id?: number | null
   discogs_release_date?: string | null
-  genres?: string | null // Comma-separated string
-  styles?: string | null // Comma-separated string
+  genres?: string | null
+  styles?: string | null
   image_url?: string | null
-  tracklist?: string | null // Stored as JSON string
+  tracklist?: string | null
   is_nz_music?: boolean | null
   stock_on_hand?: number | null
-  rating: number | null
+  rating: number // ⭐ Changed from number | null to just number
 }
 
 export interface CustomError {

@@ -4,7 +4,7 @@ import {
   getDistributorConfig,
   getDistributorDataHandler,
 } from '../dataHandlers/getDistributorHandler.js'
-import { scrubber } from '../utils/scrubber.js' // Added Scrubber import
+import { scrubber } from '../utils/scrubber.js'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
@@ -99,7 +99,6 @@ router.post('/import', async (req: Request, res: Response) => {
 // --- CONSOLIDATION ROUTE (Staging to Master) ---
 router.post('/consolidate', async (req: Request, res: Response) => {
   try {
-    // 1. Fetch all raw data from staging
     const rawData = await db.getAllRawData()
 
     if (!rawData || rawData.length === 0) {
@@ -108,18 +107,18 @@ router.post('/consolidate', async (req: Request, res: Response) => {
         .json({ message: 'No data in staging to consolidate.' })
     }
 
-    // 2. Scrub and Map
     const cleanData = rawData.map((row: any) => ({
       artist: scrubber.artist(row.artist),
       title: scrubber.text(row.title),
       barcode: scrubber.barcode(row.barcode),
       format: scrubber.text(row.format),
       is_nz_music: scrubber.boolean(row.is_nz_music),
-      distributor: row.distributor || 'Unknown',
+      // Use source_distributor to match the Master table column
+      source_distributor: row.distributor || 'Unknown',
       rating: 0,
+      last_imported_at: new Date(),
     }))
 
-    // 3. Move to Master
     const count = await db.insertToMaster(cleanData)
 
     res.status(200).json({
