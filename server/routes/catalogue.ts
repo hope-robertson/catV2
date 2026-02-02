@@ -9,11 +9,19 @@ import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
 import { dirname } from 'path'
+import { checkJwt } from '../auth0/auth.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 const router = Router()
+
+/**
+ * 🔒 SECURITY LAYER
+ * This tells Express that EVERY route defined in this file (search, import, etc.)
+ * now requires a valid Auth0 Access Token.
+ */
+router.use(checkJwt)
 
 // --- SEARCH ROUTE ---
 router.get('/search', async (req: Request, res: Response) => {
@@ -63,10 +71,14 @@ router.post('/import', async (req: Request, res: Response) => {
         .json({ message: 'Filename and distributor are required.' })
     }
 
+    // Now correctly looking in the root /uploads folder for the name provided
     const filePath = path.join(__dirname, '..', '..', 'uploads', filename)
     const fileExists = fs.existsSync(filePath)
+
     if (!fileExists) {
-      return res.status(404).json({ message: `File not found: ${filename}` })
+      return res
+        .status(404)
+        .json({ message: `File not found in uploads: ${filename}` })
     }
 
     const config = getDistributorConfig(distributorValue)
@@ -113,7 +125,6 @@ router.post('/consolidate', async (req: Request, res: Response) => {
       barcode: scrubber.barcode(row.barcode),
       format: scrubber.text(row.format),
       is_nz_music: scrubber.boolean(row.is_nz_music),
-      // Use source_distributor to match the Master table column
       source_distributor: row.distributor || 'Unknown',
       rating: 0,
       last_imported_at: new Date(),
@@ -131,14 +142,12 @@ router.post('/consolidate', async (req: Request, res: Response) => {
   }
 })
 
-// GET /api/v1/catalogue/preview-staging
+// --- PREVIEW ROUTE ---
 router.get('/preview-staging', async (req: Request, res: Response) => {
   try {
     const rawData = await db.getAllRawData()
 
-    // We show a decent sample (e.g., 50 rows) so you can see different distributors
     const preview = rawData.slice(0, 50).map((row: any) => ({
-      // The "Raw" data exactly as it came out of the CSV/Excel
       original: {
         artist: row.artist,
         title: row.title,
@@ -146,7 +155,6 @@ router.get('/preview-staging', async (req: Request, res: Response) => {
         format: row.format,
         is_nz: row.is_nz_music,
       },
-      // What it will look like once it hits the Master Catalogue
       scrubbed: {
         artist: scrubber.artist(row.artist),
         title: scrubber.text(row.title),
