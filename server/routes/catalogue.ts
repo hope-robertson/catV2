@@ -16,11 +16,7 @@ const __dirname = dirname(__filename)
 
 const router = Router()
 
-/**
- * 🔒 SECURITY LAYER
- * This tells Express that EVERY route defined in this file (search, import, etc.)
- * now requires a valid Auth0 Access Token.
- */
+// 🔒 Global Security: Require login for all catalogue operations
 router.use(checkJwt)
 
 // --- SEARCH ROUTE ---
@@ -61,8 +57,7 @@ router.patch('/rating', async (req: Request, res: Response) => {
 // --- IMPORT ROUTE (File to Staging) ---
 router.post('/import', async (req: Request, res: Response) => {
   try {
-    const filename = req.body.filename as string
-    const distributorValue = req.body.distributor as string
+    const { filename, distributor: distributorValue } = req.body
     const formatType = (req.query.formatType || 'All') as 'LP' | 'CD' | 'All'
 
     if (!filename || !distributorValue) {
@@ -71,11 +66,17 @@ router.post('/import', async (req: Request, res: Response) => {
         .json({ message: 'Filename and distributor are required.' })
     }
 
-    // Now correctly looking in the root /uploads folder for the name provided
-    const filePath = path.join(__dirname, '..', '..', 'uploads', filename)
-    const fileExists = fs.existsSync(filePath)
+    // 🔍 Diagnostics: Resolve path from project root
+    const uploadDir = path.resolve('uploads')
+    const filePath = path.join(uploadDir, filename)
 
-    if (!fileExists) {
+    console.log('--- IMPORT DIAGNOSTICS ---')
+    console.log('Looking for:', filename)
+    console.log('Full Path:', filePath)
+
+    if (!fs.existsSync(filePath)) {
+      console.error('❌ FILE NOT FOUND IN UPLOADS')
+      console.log('Current Uploads Dir Contains:', fs.readdirSync(uploadDir))
       return res
         .status(404)
         .json({ message: `File not found in uploads: ${filename}` })
@@ -85,7 +86,7 @@ router.post('/import', async (req: Request, res: Response) => {
     if (!config) {
       return res
         .status(400)
-        .json({ message: `Invalid distributor value: ${distributorValue}` })
+        .json({ message: `Invalid distributor: ${distributorValue}` })
     }
 
     const handler = getDistributorDataHandler(config)
@@ -101,14 +102,14 @@ router.post('/import', async (req: Request, res: Response) => {
       message: `Successfully imported ${insertedCount} records from ${config.name}.`,
     })
   } catch (error) {
-    console.error('An error occurred during import:', error)
+    console.error('Import error:', error)
     res
       .status(500)
       .json({ message: 'An unexpected error occurred during import.' })
   }
 })
 
-// --- CONSOLIDATION ROUTE (Staging to Master) ---
+// --- CONSOLIDATION ROUTE ---
 router.post('/consolidate', async (req: Request, res: Response) => {
   try {
     const rawData = await db.getAllRawData()
@@ -131,11 +132,12 @@ router.post('/consolidate', async (req: Request, res: Response) => {
     }))
 
     const count = await db.insertToMaster(cleanData)
-
-    res.status(200).json({
-      message: `Successfully scrubbed and moved ${count} records to Master Catalogue.`,
-      count,
-    })
+    res
+      .status(200)
+      .json({
+        message: `Successfully scrubbed and moved ${count} records.`,
+        count,
+      })
   } catch (error) {
     console.error('Consolidation error:', error)
     res.status(500).json({ message: 'Failed to consolidate data.' })
@@ -146,7 +148,6 @@ router.post('/consolidate', async (req: Request, res: Response) => {
 router.get('/preview-staging', async (req: Request, res: Response) => {
   try {
     const rawData = await db.getAllRawData()
-
     const preview = rawData.slice(0, 50).map((row: any) => ({
       original: {
         artist: row.artist,
@@ -163,7 +164,6 @@ router.get('/preview-staging', async (req: Request, res: Response) => {
         is_nz: scrubber.boolean(row.is_nz_music),
       },
     }))
-
     res.status(200).json(preview)
   } catch (error) {
     console.error('Preview error:', error)

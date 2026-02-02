@@ -1,16 +1,15 @@
 // client/src/components/ImportData.tsx
 import React, { useState } from 'react'
-import { useAuth0 } from '@auth0/auth0-react' // 👈 Add this
+import { useAuth0 } from '@auth0/auth0-react'
 
 export default function ImportData() {
-  const { getAccessTokenSilently, isAuthenticated } = useAuth0() // 👈 Add this
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0()
   const [file, setFile] = useState<File | null>(null)
   const [distributor, setDistributor] = useState('southbound_instock')
   const [isUploading, setIsUploading] = useState(false)
   const [previewData, setPreviewData] = useState<any[]>([])
   const [isConsolidating, setIsConsolidating] = useState(false)
 
-  // Full list of your current distributors
   const distributors = [
     { name: 'Southbound In-stock', value: 'southbound_instock' },
     { name: 'Flying Nun Records', value: 'flying_nun_records_limited' },
@@ -29,27 +28,53 @@ export default function ImportData() {
 
     setIsUploading(true)
     try {
-      const token = await getAccessTokenSilently() // 🔑 Fetch secure token
+      const token = await getAccessTokenSilently()
 
-      const response = await fetch('/api/v1/catalogue/import', {
+      // --- STEP 1: UPLOAD THE PHYSICAL FILE ---
+      // We use FormData to send binary file data to our upload route
+      const formData = new FormData()
+      formData.append('stockFile', file) // 'stockFile' matches your Multer config in upload.ts
+
+      const uploadResponse = await fetch('/api/v1/upload', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json()
+        throw new Error(errorData.message || 'File upload failed')
+      }
+
+      // Get the filename back from the server (it might have been sanitized)
+      const { filename: uploadedFilename } = await uploadResponse.json()
+
+      // --- STEP 2: TRIGGER THE DATABASE IMPORT ---
+      // Now we tell the catalogue route to process the file we just uploaded
+      const importResponse = await fetch('/api/v1/catalogue/import', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`, // 🔑 Send token to backend
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ filename: file.name, distributor }),
+        body: JSON.stringify({
+          filename: uploadedFilename,
+          distributor,
+        }),
       })
 
-      if (response.ok) {
-        alert('Upload registered! Generating preview...')
+      if (importResponse.ok) {
+        alert('File uploaded and processed! Generating preview...')
         fetchPreview()
       } else {
-        const errorData = await response.json()
-        alert(`Error: ${errorData.message}`)
+        const errorData = await importResponse.json()
+        alert(`Import Error: ${errorData.message}`)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err)
-      alert('Upload failed. Are you logged in?')
+      alert(`Process failed: ${err.message}`)
     } finally {
       setIsUploading(false)
     }
@@ -78,14 +103,19 @@ export default function ImportData() {
     setIsConsolidating(true)
     try {
       const token = await getAccessTokenSilently()
-      await fetch('/api/v1/catalogue/consolidate', {
+      const response = await fetch('/api/v1/catalogue/consolidate', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
-      alert('Consolidation Complete!')
-      setPreviewData([])
+
+      if (response.ok) {
+        alert('Consolidation Complete!')
+        setPreviewData([])
+      } else {
+        alert('Consolidation failed on the server.')
+      }
     } catch (err) {
-      alert('Consolidation failed')
+      alert('Consolidation request failed.')
     } finally {
       setIsConsolidating(false)
     }
@@ -133,7 +163,9 @@ export default function ImportData() {
                 disabled={isUploading}
                 className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 font-bold"
               >
-                {isUploading ? 'Registering...' : 'Upload to Staging'}
+                {isUploading
+                  ? 'Uploading & Processing...'
+                  : 'Upload to Staging'}
               </button>
             </section>
 
@@ -158,14 +190,37 @@ export default function ImportData() {
             </section>
           </div>
 
-          {/* PREVIEW TABLE (Existing Logic) */}
+          {/* PREVIEW TABLE */}
           {previewData.length > 0 && (
             <div className="mt-8 overflow-x-auto">
               <h3 className="text-lg font-semibold mb-4 text-orange-600">
                 Visual Scan: Before & After Scrubber
               </h3>
-              <table className="w-full text-left text-sm border-collapse">
-                {/* ... table head and body as before ... */}
+              <table className="w-full text-left text-sm border-collapse border border-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="p-2 border">Original Artist/Title</th>
+                    <th className="p-2 border">Scrubbed Artist/Title</th>
+                    <th className="p-2 border">Barcode</th>
+                    <th className="p-2 border">Format</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-gray-50">
+                      <td className="p-2 border text-gray-400">
+                        {row.original.artist} - {row.original.title}
+                      </td>
+                      <td className="p-2 border font-medium">
+                        {row.scrubbed.artist} - {row.scrubbed.title}
+                      </td>
+                      <td className="p-2 border font-mono">
+                        {row.scrubbed.barcode}
+                      </td>
+                      <td className="p-2 border">{row.scrubbed.format}</td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
             </div>
           )}
