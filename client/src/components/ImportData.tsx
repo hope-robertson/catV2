@@ -5,13 +5,17 @@ import { useAuth0 } from '@auth0/auth0-react'
 export default function ImportData() {
   const { getAccessTokenSilently, isAuthenticated } = useAuth0()
   const [file, setFile] = useState<File | null>(null)
-  const [distributor, setDistributor] = useState('southbound_instock')
+
+  // ⭐ FIX: Default state must match the "value" key in the distributors array below
+  const [distributor, setDistributor] = useState('Southbound')
+
   const [isUploading, setIsUploading] = useState(false)
   const [previewData, setPreviewData] = useState<any[]>([])
   const [isConsolidating, setIsConsolidating] = useState(false)
 
+  // Full list of your current distributors - Values match backend getDistributorHandler.ts
   const distributors = [
-    { name: 'Southbound In-stock', value: 'Southbound' }, // 👈 Match config.value
+    { name: 'Southbound In-stock', value: 'Southbound' },
     { name: 'Flying Nun Records', value: 'Flying Nun Records Limited' },
     { name: 'Border Music', value: 'Border Music' },
     { name: 'Collective LP', value: 'Collective (LP)' },
@@ -29,9 +33,8 @@ export default function ImportData() {
       const token = await getAccessTokenSilently()
 
       // --- STEP 1: UPLOAD THE PHYSICAL FILE ---
-      // We use FormData to send binary file data to our upload route
       const formData = new FormData()
-      formData.append('stockFile', file) // 'stockFile' matches your Multer config in upload.ts
+      formData.append('stockFile', file)
 
       const uploadResponse = await fetch('/api/v1/upload', {
         method: 'POST',
@@ -46,11 +49,9 @@ export default function ImportData() {
         throw new Error(errorData.message || 'File upload failed')
       }
 
-      // Get the filename back from the server (it might have been sanitized)
       const { filename: uploadedFilename } = await uploadResponse.json()
 
       // --- STEP 2: TRIGGER THE DATABASE IMPORT ---
-      // Now we tell the catalogue route to process the file we just uploaded
       const importResponse = await fetch('/api/v1/catalogue/import', {
         method: 'POST',
         headers: {
@@ -59,7 +60,7 @@ export default function ImportData() {
         },
         body: JSON.stringify({
           filename: uploadedFilename,
-          distributor,
+          distributor, // This now sends "Southbound" instead of "southbound_instock"
         }),
       })
 
