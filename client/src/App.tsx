@@ -1,30 +1,65 @@
 // client/src/App.tsx
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
+import { useAuth0 } from '@auth0/auth0-react' // 👈 Add this
 import ImportData from './components/ImportData.js'
 import CatalogueList from './components/CatalogueList.js'
-import './App.css' // Or your main CSS file
+import './App.css'
 
 function App() {
+  const { loginWithRedirect, logout, isAuthenticated, user, isLoading } =
+    useAuth0()
+
   return (
     <Router>
       <div className="min-h-screen bg-gray-100 p-4">
-        <nav className="bg-white shadow-md rounded-lg p-4 mb-6 flex justify-center space-x-4">
-          <Link
-            to="/"
-            className="text-blue-600 hover:text-blue-800 font-semibold text-lg"
-          >
-            Import Data
-          </Link>
-          <Link
-            to="/catalogue"
-            className="text-blue-600 hover:text-blue-800 font-semibold text-lg"
-          >
-            View Catalogue
-          </Link>
+        <nav className="bg-white shadow-md rounded-lg p-4 mb-6 flex justify-between items-center max-w-5xl mx-auto">
+          <div className="flex space-x-6 items-center">
+            <Link
+              to="/"
+              className="text-blue-600 hover:text-blue-800 font-semibold text-lg"
+            >
+              Import Data
+            </Link>
+            <Link
+              to="/catalogue"
+              className="text-blue-600 hover:text-blue-800 font-semibold text-lg"
+            >
+              View Catalogue
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {isLoading ? (
+              <span className="text-sm text-gray-400">Loading...</span>
+            ) : isAuthenticated ? (
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium text-gray-700">
+                  Hi, {user?.nickname || user?.name}
+                </span>
+                <button
+                  onClick={() =>
+                    logout({
+                      logoutParams: { returnTo: window.location.origin },
+                    })
+                  }
+                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded-md text-sm font-bold transition-colors"
+                >
+                  Log Out
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => loginWithRedirect()}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-md text-sm font-bold transition-all shadow-md"
+              >
+                Log In
+              </button>
+            )}
+          </div>
         </nav>
 
-        <main className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+        <main className="max-w-5xl mx-auto">
           <Routes>
             <Route path="/" element={<ImportData />} />
             <Route path="/catalogue" element={<CatalogueList />} />
