@@ -11,15 +11,13 @@ export default function ImportData() {
   const [isConsolidating, setIsConsolidating] = useState(false)
 
   const distributors = [
-    { name: 'Southbound In-stock', value: 'southbound_instock' },
-    { name: 'Flying Nun Records', value: 'flying_nun_records_limited' },
-    { name: 'Border Music', value: 'border_music' },
-    {
-      name: 'Rhythmethod Group (Sony/Warner)',
-      value: 'rhythmethod_group_combined',
-    },
-    { name: 'Collective LP', value: 'collective_lp' },
-    { name: 'Collective CD', value: 'collective_cd' },
+    { name: 'Southbound In-stock', value: 'Southbound' }, // 👈 Match config.value
+    { name: 'Flying Nun Records', value: 'Flying Nun Records Limited' },
+    { name: 'Border Music', value: 'Border Music' },
+    { name: 'Collective LP', value: 'Collective (LP)' },
+    { name: 'Collective CD', value: 'Collective (CD)' },
+    { name: 'Rhythmethod Vinyl', value: 'Rhythmethod Group (Vinyl)' },
+    { name: 'Rhythmethod CD', value: 'Rhythmethod Group (CD)' },
   ]
 
   const handleUpload = async () => {
