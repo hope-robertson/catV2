@@ -7,7 +7,7 @@ import express from 'express'
 import * as Path from 'node:path'
 
 import catalogueRoutes from './routes/catalogue.js' // Catalogue routes imported
-import aggregationRoutes from './routes/aggregation.js' // Aggregation routes imported
+
 import { initializeCheckJwt } from './utils/auth.js'
 
 // 3. INITIALIZE AUTH MIDDLEWARE (MUST happen here, AFTER dotenv.config())
@@ -26,9 +26,6 @@ server.use('/api/v1/upload', checkJwt, uploadRouter)
 
 // 2. Catalogue Import/Query Routes (Protected - THIS WAS THE MISSING LINE)
 server.use('/api/v1/catalogue', checkJwt, catalogueRoutes)
-
-// 3. Aggregation Run Route (Protected)
-server.use('/api/v1/aggregation', checkJwt, aggregationRoutes)
 
 // Health Check / Placeholder Route
 server.get('/', (req, res) => {
