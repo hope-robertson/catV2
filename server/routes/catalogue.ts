@@ -131,4 +131,36 @@ router.post('/consolidate', async (req: Request, res: Response) => {
   }
 })
 
+// GET /api/v1/catalogue/preview-staging
+router.get('/preview-staging', async (req: Request, res: Response) => {
+  try {
+    const rawData = await db.getAllRawData()
+
+    // We show a decent sample (e.g., 50 rows) so you can see different distributors
+    const preview = rawData.slice(0, 50).map((row: any) => ({
+      // The "Raw" data exactly as it came out of the CSV/Excel
+      original: {
+        artist: row.artist,
+        title: row.title,
+        barcode: row.barcode,
+        format: row.format,
+        is_nz: row.is_nz_music,
+      },
+      // What it will look like once it hits the Master Catalogue
+      scrubbed: {
+        artist: scrubber.artist(row.artist),
+        title: scrubber.text(row.title),
+        barcode: scrubber.barcode(row.barcode),
+        format: scrubber.text(row.format),
+        is_nz: scrubber.boolean(row.is_nz_music),
+      },
+    }))
+
+    res.status(200).json(preview)
+  } catch (error) {
+    console.error('Preview error:', error)
+    res.status(500).json({ message: 'Failed to generate preview.' })
+  }
+})
+
 export default router
