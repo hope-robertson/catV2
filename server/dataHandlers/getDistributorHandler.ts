@@ -1,20 +1,14 @@
 // server/dataHandlers/getDistributorHandler.ts
-
 import { DistributorConfig, DistributorHandler } from '../types/catalogue.js'
 import { processExcelRows, getWorksheet } from '../utils/excelHelpers.js'
-import { processCsvRows } from '../utils/csvHelpers.js' // Corrected CSV import
-
-// Import all specific mapping and handler functions
+import { processCsvRows } from '../utils/csvHelpers.js'
 import { mapBorderMusicRow } from './distributorHandlers/borderMusicHandler.js'
 import { mapCollectiveRow } from './distributorHandlers/collectiveHandler.js'
 import { mapFlyingNunRow } from './distributorHandlers/flyingNunHandler.js'
 import { mapSouthboundRow } from './distributorHandlers/southboundHandler.js'
-// ⭐ FIX: Corrected import name to match the exported function name
 import { mapRhythmethodGroupRow } from './distributorHandlers/rhythmethodGroupHandler.js'
 
-// Centralized configuration for all distributors
 const distributorConfigurations: DistributorConfig[] = [
-  // 1. Border Music
   {
     name: 'Border Music',
     value: 'Border Music',
@@ -25,8 +19,6 @@ const distributorConfigurations: DistributorConfig[] = [
     headerRowsToSkip: 4,
     requiresFormatFilter: false,
   },
-
-  // 2. Flying Nun Records Limited (CSV)
   {
     name: 'Flying Nun Records Limited',
     value: 'Flying Nun Records Limited',
@@ -36,8 +28,6 @@ const distributorConfigurations: DistributorConfig[] = [
     headerRowsToSkip: 4,
     requiresFormatFilter: false,
   },
-
-  // 3. Southbound (Unchanged)
   {
     name: 'Southbound',
     value: 'Southbound',
@@ -45,11 +35,9 @@ const distributorConfigurations: DistributorConfig[] = [
     fileType: 'xlsx',
     accept:
       '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
-    headerRowsToSkip: 7,
+    headerRowsToSkip: 1, // Updated to 1 for the newest spreadsheet format
     requiresFormatFilter: true,
   },
-
-  // 4. Collective (LP & CD, Corrected header skip)
   {
     name: 'Collective (LP)',
     value: 'Collective (LP)',
@@ -70,8 +58,6 @@ const distributorConfigurations: DistributorConfig[] = [
     headerRowsToSkip: 1,
     requiresFormatFilter: true,
   },
-
-  // 5. Rhythmethod Group - Vinyl Configuration
   {
     name: 'Rhythmethod Group (Vinyl)',
     value: 'Rhythmethod Group (Vinyl)',
@@ -82,8 +68,6 @@ const distributorConfigurations: DistributorConfig[] = [
     headerRowsToSkip: 2,
     requiresFormatFilter: true,
   },
-
-  // 6. Rhythmethod Group - CD Configuration
   {
     name: 'Rhythmethod Group (CD)',
     value: 'Rhythmethod Group (CD)',
@@ -96,29 +80,28 @@ const distributorConfigurations: DistributorConfig[] = [
   },
 ]
 
-// The 'export' keyword here makes the function available for other files to import
 export function getDistributorConfig(
-  distributorValue: string
+  distributorValue: string,
 ): DistributorConfig | undefined {
   return distributorConfigurations.find(
-    (config) => config.value === distributorValue
+    (config) => config.value === distributorValue,
   )
 }
 
 export function getDistributorDataHandler(
-  config: DistributorConfig
+  config: DistributorConfig,
 ): DistributorHandler {
   switch (config.value) {
     case 'Border Music':
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
-        if (!worksheet) throw new Error('Worksheet not found for Border Music')
+        if (!worksheet) throw new Error('Worksheet not found')
         return processExcelRows(
           worksheet,
-          config.headerRowsToSkip as number,
+          config.headerRowsToSkip,
           mapBorderMusicRow,
           config.value,
-          formatType
+          formatType,
         )
       }
 
@@ -126,64 +109,57 @@ export function getDistributorDataHandler(
       return async (filePath, formatType) => {
         return processCsvRows(
           filePath,
-          config.headerRowsToSkip as number,
+          config.headerRowsToSkip,
           mapFlyingNunRow,
           config.value,
-          formatType
+          formatType,
         )
       }
 
     case 'Southbound':
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
-        if (!worksheet) throw new Error('Worksheet not found for Southbound')
+        if (!worksheet) throw new Error('Worksheet not found')
         return processExcelRows(
           worksheet,
-          config.headerRowsToSkip as number,
+          config.headerRowsToSkip,
           mapSouthboundRow,
           config.value,
-          formatType
+          formatType,
         )
       }
 
-    // ⭐ Collective (LP & CD)
     case 'Collective (LP)':
     case 'Collective (CD)':
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
-        if (!worksheet) throw new Error('Worksheet not found for Collective')
+        if (!worksheet) throw new Error('Worksheet not found')
         return processExcelRows(
           worksheet,
-          config.headerRowsToSkip as number,
+          config.headerRowsToSkip,
           (row) => mapCollectiveRow(row, config.value),
           config.value,
-          formatType
+          formatType,
         )
       }
 
-    // ⭐ Rhythmethod Group (Vinyl) and (CD)
     case 'Rhythmethod Group (Vinyl)':
     case 'Rhythmethod Group (CD)':
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
-        if (!worksheet)
-          throw new Error('Worksheet not found for Rhythmethod Group')
-
+        if (!worksheet) throw new Error('Worksheet not found')
         return processExcelRows(
           worksheet,
-          config.headerRowsToSkip as number,
-          mapRhythmethodGroupRow, // ⭐ FIX: Corrected function call
-          config.value, // Pass distributor value
-          formatType // Pass the format filter (LP/CD)
+          config.headerRowsToSkip,
+          mapRhythmethodGroupRow,
+          config.value,
+          formatType,
         )
       }
 
     default:
-      throw new Error(
-        `No specific data handler found for distributor: ${config.value}`
-      )
+      throw new Error(`No handler found for: ${config.value}`)
   }
 }
 
-// Export the full configurations list, useful for frontend dropdowns
 export { distributorConfigurations }

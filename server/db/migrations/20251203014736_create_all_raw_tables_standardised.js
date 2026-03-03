@@ -3,20 +3,16 @@
  * @returns { Promise<void> }
  */
 export async function up(knex) {
-  
   const createTable = async (tableName) => {
-    // This function creates the raw table with all standard CatalogueRow fields
-    
     await knex.schema.createTable(tableName, (table) => {
       table.increments('id').primary()
-      
-      // Standard CatalogueRow Fields (Includes all fields required for future aggregation)
+
       table.string('artist').nullable()
       table.string('title').nullable()
       table.string('label').nullable()
       table.string('format').nullable()
       table.string('released').nullable()
-      table.text('description').nullable() // CRITICAL FIX: Guaranteed to exist
+      table.text('description').nullable()
       table.string('barcode').nullable()
       table.string('catalogue_number').nullable()
       table.float('price').nullable()
@@ -24,16 +20,15 @@ export async function up(knex) {
       table.string('bin_location').nullable()
       table.string('item_code').nullable()
       table.float('unit_sale_price_excl_gst').nullable()
-      table.integer('stock_on_hand').nullable() // CRITICAL FIX: Guaranteed to exist
-      
-      // Data Tracking Fields
-      table.string('distributor').notNullable() // CRITICAL FIX: Guaranteed to exist
+      table.integer('stock_on_hand').nullable()
+      table.string('genres').nullable()
+
+      table.string('distributor').notNullable()
       table.timestamp('imported_at').defaultTo(knex.fn.now())
     })
-    console.log(`Table ${tableName} created with full standardized schema.`)
+    console.log(`Table ${tableName} created.`)
   }
 
-  // Create all raw tables (Collective and Rhythmethod consolidated)
   await createTable('border_music_raw')
   await createTable('rhythmethod_group_combined_raw')
   await createTable('flying_nun_records_limited_raw')
