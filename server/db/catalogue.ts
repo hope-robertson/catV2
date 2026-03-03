@@ -1,46 +1,27 @@
-// server/db/catalogue.ts
-
 import knex from './connection.js'
 import { CatalogueRow, MasterCatalogueRow } from '../types/catalogue.js'
 
-/**
- * Inserts catalogue data into the specified raw table.
- */
 export async function importCatalogueData(
   tableName: string,
   data: CatalogueRow[],
 ): Promise<number> {
   try {
-    console.log(`Clearing existing data from table: ${tableName}`)
     await knex(tableName).del()
-
     if (data.length > 0) {
       const BATCH_SIZE = 500
       await knex.batchInsert(tableName, data, BATCH_SIZE)
-
-      console.log(
-        `Successfully inserted ${data.length} records into ${tableName} using batch insert.`,
-      )
       return data.length
-    } else {
-      console.log(`No data to insert into ${tableName}.`)
-      return 0
     }
+    return 0
   } catch (error) {
-    console.error(`Error inserting data into ${tableName}:`, error)
+    console.error(`Error inserting into ${tableName}:`, error)
     throw error
   }
 }
 
-/**
- * Consolidates data from all raw distributor tables into the master_catalogue table.
- */
 export async function consolidateRawDataToMaster(): Promise<number> {
   try {
-    console.log('Consolidating raw data into master_catalogue...')
-
     await knex('master_catalogue').del()
-
     const rawTableNames = [
       'flying_nun_records_limited_raw',
       'border_music_raw',
@@ -50,146 +31,36 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       'rhythmethod_group_combined_raw',
     ]
 
-    let totalInserted = 0
     const uniqueItems = new Map<string, MasterCatalogueRow>()
 
     for (const tableName of rawTableNames) {
       const rawData = await knex(tableName).select('*')
       for (const item of rawData) {
         const masterItem: MasterCatalogueRow = {
-          imported_at: new Date(item.imported_at),
-          distributor: item.distributor,
-          artist: item.artist,
-          title: item.title,
-          label: item.label,
-          format: item.format,
-          released: item.released,
-          description: item.description,
-          barcode: item.barcode,
-          catalogue_number: item.catalogue_number,
-          price: item.price || item.unit_sale_price_excl_gst,
-          bin_location: item.bin_location,
-          item_code: item.item_code,
-          unit_sale_price_excl_gst: item.unit_sale_price_excl_gst,
-          is_nz_music: item.is_nz_music,
+          ...item,
           source_distributor: item.distributor,
           last_imported_at: new Date(),
-          discogs_release_id: null,
-          discogs_master_id: null,
-          discogs_release_date: null,
-          genres: null,
-          styles: null,
-          image_url: null,
-          tracklist: null,
-          id: 0,
-          rating: 0, // Explicitly initializing rating
+          rating: 0,
         }
-
         const key =
-          masterItem.barcode ||
-          `${masterItem.artist}-${masterItem.title}-${masterItem.format}`
-        if (key && !uniqueItems.has(key)) {
-          uniqueItems.set(key, masterItem)
-        }
+          masterItem.barcode || `${item.artist}-${item.title}-${item.format}`
+        if (key && !uniqueItems.has(key)) uniqueItems.set(key, masterItem)
       }
     }
 
     const itemsToInsert = Array.from(uniqueItems.values())
     if (itemsToInsert.length > 0) {
       await knex.batchInsert('master_catalogue', itemsToInsert, 500)
-      totalInserted = itemsToInsert.length
     }
-
-    console.log(
-      `Consolidated ${totalInserted} unique records into master_catalogue.`,
-    )
-    return totalInserted
+    return itemsToInsert.length
   } catch (error) {
-    console.error('Error consolidating raw data to master catalogue:', error)
-    throw error
-  }
-}
-
-export async function getAllMasterCatalogue(
-  distributor?: string,
-  format?: string,
-): Promise<MasterCatalogueRow[]> {
-  try {
-    let query = knex<MasterCatalogueRow>('master_catalogue').select('*')
-
-    if (distributor && distributor !== 'All') {
-      query = query.where('source_distributor', distributor)
-    }
-
-    if (format && format !== 'All') {
-      query = query.where('format', 'ilike', `%${format}%`)
-    }
-
-    return await query
-  } catch (error) {
-    console.error('Error fetching all master catalogue entries:', error)
-    throw error
-  }
-}
-
-/**
- * Searches the master_catalogue table with weighted relevance.
- */
-export async function searchMasterCatalogue(
-  query: string,
-  filter: string,
-): Promise<MasterCatalogueRow[]> {
-  try {
-    return await knex<MasterCatalogueRow>('master_catalogue')
-      .select('*')
-      .select(
-        knex.raw(
-          `CASE 
-            WHEN artist = ? THEN 1
-            WHEN title = ? THEN 2
-            WHEN artist LIKE ? THEN 3
-            ELSE 4
-          END AS relevance`,
-          [query, query, `${query}%`],
-        ),
-      )
-      .where((builder) => {
-        if (filter === 'artist') {
-          builder.where('artist', 'like', `%${query}%`)
-        } else if (filter === 'title') {
-          builder.where('title', 'like', `%${query}%`)
-        } else {
-          builder
-            .where('artist', 'like', `%${query}%`)
-            .orWhere('title', 'like', `%${query}%`)
-            .orWhere('barcode', 'like', `%${query}%`)
-        }
-      })
-      .orderBy('relevance', 'asc')
-      .orderBy('artist', 'asc')
-  } catch (error) {
-    console.error('Error searching master catalogue:', error)
-    throw error
-  }
-}
-
-/**
- * Updates the rating (0-3) for a specific item in the master catalogue.
- */
-export async function updateRecordRating(
-  id: number,
-  rating: number,
-): Promise<number> {
-  try {
-    return await knex('master_catalogue').where('id', id).update({ rating })
-  } catch (error) {
-    console.error(`Error updating rating for record ID ${id}:`, error)
+    console.error('Consolidation error:', error)
     throw error
   }
 }
 
 export async function getAllRawData(): Promise<any[]> {
-  const rawTableNames = [
+  const tables = [
     'flying_nun_records_limited_raw',
     'border_music_raw',
     'collective_lp_raw',
@@ -197,26 +68,37 @@ export async function getAllRawData(): Promise<any[]> {
     'southbound_instock_raw',
     'rhythmethod_group_combined_raw',
   ]
-
-  let allData: any[] = []
-  for (const table of rawTableNames) {
-    const data = await knex(table).select('*')
-    allData = [...allData, ...data]
-  }
-  return allData
+  const results = await Promise.all(tables.map((t) => knex(t).select('*')))
+  return results.flat()
 }
 
-/**
- * Inserts scrubbed data into the master catalogue.
- * Uses onConflict to avoid crashing on duplicate barcodes.
- */
 export async function insertToMaster(data: any[]): Promise<number> {
   if (data.length === 0) return 0
-
-  // We use batch insert for speed.
-  // Note: if you want to handle duplicate barcodes, you would
-  // typically use .onConflict('barcode').merge() here if using Postgres.
-  // For SQLite, batchInsert is safer for bulk operations.
   await knex.batchInsert('master_catalogue', data, 500)
   return data.length
+}
+
+export async function searchMasterCatalogue(
+  query: string,
+  filter: string,
+): Promise<MasterCatalogueRow[]> {
+  return knex<MasterCatalogueRow>('master_catalogue')
+    .select('*')
+    .where((builder) => {
+      if (filter === 'artist') builder.where('artist', 'like', `%${query}%`)
+      else if (filter === 'title') builder.where('title', 'like', `%${query}%`)
+      else
+        builder
+          .where('artist', 'like', `%${query}%`)
+          .orWhere('title', 'like', `%${query}%`)
+          .orWhere('barcode', 'like', `%${query}%`)
+    })
+    .orderBy('artist', 'asc')
+}
+
+export async function updateRecordRating(
+  id: number,
+  rating: number,
+): Promise<number> {
+  return knex('master_catalogue').where('id', id).update({ rating })
 }

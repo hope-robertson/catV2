@@ -1,15 +1,15 @@
-// client/src/hooks/useData.ts
-import { useMutation, useQuery } from '@tanstack/react-query' // Updated import
-import {
-  CatalogueRow,
-  MasterCatalogueRow,
-  UploadResponse,
-  CustomError,
-} from '../../../server/types/catalogue.js' // Adjust path as needed
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-// Hook for importing data
+export interface UploadResponse {
+  message: string
+  stagedCount: number
+  distributor: string
+}
+
 export function useImportData() {
-  return useMutation<UploadResponse, CustomError, FormData>(
+  const queryClient = useQueryClient()
+
+  return useMutation<UploadResponse, Error, FormData>(
     async (formData: FormData) => {
       const response = await fetch('/api/v1/catalogue/import', {
         method: 'POST',
@@ -18,34 +18,15 @@ export function useImportData() {
 
       if (!response.ok) {
         const errorBody = await response.json()
-        throw {
-          message: errorBody.message || 'Failed to import data.',
-          ...errorBody,
-        }
+        throw new Error(errorBody.message || 'Failed to import data.')
       }
       return response.json()
     },
-  )
-}
-
-// Hook for fetching master catalogue data
-export function useMasterCatalogue(distributor?: string, format?: string) {
-  return useQuery<MasterCatalogueRow[], CustomError>(
-    ['masterCatalogue', distributor, format],
-    async () => {
-      const params = new URLSearchParams()
-      if (distributor) params.append('distributor', distributor)
-      if (format) params.append('format', format)
-
-      const response = await fetch(`/api/v1/catalogue/all?${params.toString()}`)
-      if (!response.ok) {
-        const errorBody = await response.json()
-        throw {
-          message: errorBody.message || 'Failed to fetch master catalogue.',
-          ...errorBody,
-        }
-      }
-      return response.json()
+    {
+      onSuccess: () => {
+        // Invalidate preview queries so the table refreshes
+        queryClient.invalidateQueries(['previewStaging'])
+      },
     },
   )
 }

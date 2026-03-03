@@ -1,4 +1,3 @@
-// server/dataHandlers/getDistributorHandler.ts
 import { DistributorConfig, DistributorHandler } from '../types/catalogue.js'
 import { processExcelRows, getWorksheet } from '../utils/excelHelpers.js'
 import { processCsvRows } from '../utils/csvHelpers.js'
@@ -35,7 +34,7 @@ const distributorConfigurations: DistributorConfig[] = [
     fileType: 'xlsx',
     accept:
       '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
-    headerRowsToSkip: 1, // Updated to 1 for the newest spreadsheet format
+    headerRowsToSkip: 1,
     requiresFormatFilter: true,
   },
   {
@@ -137,7 +136,7 @@ export function getDistributorDataHandler(
         return processExcelRows(
           worksheet,
           config.headerRowsToSkip,
-          (row) => mapCollectiveRow(row, config.value),
+          mapCollectiveRow,
           config.value,
           formatType,
         )

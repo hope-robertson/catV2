@@ -1,10 +1,6 @@
-// server/utils/excelHelpers.ts
 import exceljs from 'exceljs'
 import { CatalogueRow } from '../types/catalogue.js'
 
-/**
- * Reads an XLSX file and returns a specified worksheet.
- */
 export async function getWorksheet(
   filePath: string,
   sheetName?: string,
@@ -14,15 +10,10 @@ export async function getWorksheet(
 
   if (sheetName) {
     return workbook.getWorksheet(sheetName) || null
-  } else if (workbook.worksheets.length > 0) {
-    return workbook.worksheets[0]
   }
-  return null
+  return workbook.worksheets[0] || null
 }
 
-/**
- * Reads all worksheets from an XLSX file.
- */
 export async function getAllWorksheets(
   filePath: string,
 ): Promise<exceljs.Worksheet[]> {
@@ -31,9 +22,6 @@ export async function getAllWorksheets(
   return workbook.worksheets
 }
 
-/**
- * Iterates through rows of a worksheet and applies a mapping function, with optional filtering.
- */
 export function processExcelRows(
   worksheet: exceljs.Worksheet,
   numRowsToSkip: number,
@@ -42,25 +30,14 @@ export function processExcelRows(
   filterFormat: 'All' | 'LP' | 'CD' = 'All',
 ): CatalogueRow[] {
   const data: CatalogueRow[] = []
+  const desiredFormat = filterFormat.toLowerCase()
 
-  worksheet.eachRow({ includeEmpty: false }, (row: exceljs.Row, rowNumber) => {
-    // Only process rows after the header offset
+  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber > numRowsToSkip) {
       const mappedRow = mapRowFunction(row, distributorForMapping)
-
-      /**
-       * 🛡️ DEFENSIVE FIX:
-       * wrap mappedRow.format in String() to handle numbers or null values safely.
-       * If mappedRow.format is undefined, it defaults to an empty string.
-       */
       const rowFormat = String(mappedRow.format || '').toLowerCase()
-      const desiredFormat = filterFormat.toLowerCase()
 
-      // Logic check for filtering
-      if (
-        desiredFormat === 'all' ||
-        (rowFormat && rowFormat.includes(desiredFormat))
-      ) {
+      if (desiredFormat === 'all' || rowFormat.includes(desiredFormat)) {
         data.push(mappedRow)
       }
     }
