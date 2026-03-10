@@ -20,9 +20,8 @@ export function mapCollectiveRow(row: exceljs.Row, distributor: string): Catalog
   let title = getText(2) || ''
   const formatValue = getText(5) || ''
 
-  // Safe Chop: Collective often puts "VINYL" or "VINYL-2" at the end of titles.
-  // We check if the title ends with the format code (e.g. "ALL EYEZ ON ME VINYL")
-  const formatBase = formatValue.split('-')[0] // Gets "VINYL" from "VINYL-2"
+ // checking if title ends with the same format code as in format column, chops if true
+  const formatBase = formatValue.split('-')[0]
   if (formatBase && title.toUpperCase().endsWith(formatBase.toUpperCase())) {
     const potentialTitle = title.substring(0, title.toUpperCase().lastIndexOf(formatBase.toUpperCase())).trim()
     if (potentialTitle.length > 0) title = potentialTitle

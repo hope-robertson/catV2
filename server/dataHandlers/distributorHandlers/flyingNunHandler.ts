@@ -2,49 +2,70 @@
 import { CatalogueRow } from '../../types/catalogue.js'
 
 export function mapFlyingNunRow(data: Record<string, string>): CatalogueRow {
-  const price =
-    parseFloat(
-      data['Unit Sale Price excl. GST']?.replace(/[^0-9.]/g, '') || '0',
-    ) || null
-  const itemName = data['Item Name']?.trim().replace(/^"|"$/g, '') || ''
-
-  const rowData: CatalogueRow = {
-    imported_at: new Date(),
-    distributor: 'Flying Nun Records Limited',
-    item_code: data['Item Code'] || null,
-    barcode: data.Barcode || data.barcode || null,
-    catalogue_number:
-      data['Catalogue Number'] ||
-      data['Cat #'] ||
-      data.catalogue_number ||
-      null,
-    released: data.Released || data.released || null,
-    description: data.Description || data.description || itemName,
-    bin_location: data['Bin Location'] || data.Bin || data.bin_location || null,
-    price: price,
-    unit_sale_price_excl_gst: price,
-    artist: null,
-    title: null,
-    format: null,
-    label: null,
-    genres: null,
-    discogs_release_date: null,
+  const getPrice = (val: string) => {
+    const parsed = parseFloat(val?.replace(/[^0-9.]/g, '') || '0')
+    return isNaN(parsed) ? null : parsed
   }
 
-  // Parsing "Artist - Title (Format)"
-  const regex = /(.+?)\s*-\s*(.+?)(?:\s*\(([^)]+)\))?\s*$/i
+  // Use the correct header name from your CSV sample
+  let itemName = data['Item Name']?.trim() || ''
+  const itemCode = data['Item Code']?.trim() || null
+  const price = getPrice(data['Unit Sale Price'])
+
+  // 1. Fix Unicode/Bullet points (AK•79)
+  itemName = itemName.replace(/‚Ä¢/g, '•').replace(/Äì/g, '-')
+
+  // 2. Remove redundant Item Code prefix if it exists (e.g., "AHR054CD: Ghost Wave...")
+  if (itemCode && itemName.startsWith(itemCode)) {
+    itemName = itemName.replace(itemCode, '').replace(/^[:\s-]+/, '').trim()
+  }
+
+  let artist = null
+  let title = itemName
+  let format = null
+
+  /**
+   * 🔍 Regex Breakdown:
+   * ^(.+?)        -> Artist (non-greedy)
+   * \s*[:\-–—]\s* -> Separator (Colon or various dashes)
+   * (.+?)         -> Title (non-greedy)
+   * (?:\s*\(([^)]+)\))? -> Optional Format in brackets at the end
+   * \s*$          -> End of string
+   */
+  const regex = /^(.+?)\s*[:\-–—]\s*(.+?)(?:\s*\(([^)]+)\))?\s*$/i
   const match = itemName.match(regex)
 
   if (match) {
-    rowData.artist = match[1]?.trim()
-    rowData.title = match[2]?.trim()
-    rowData.format = match[3]?.replace(/^"|"$/g, '').replace(/""/g, '"') || null
+    artist = match[1].trim()
+    title = match[2].trim()
+    format = match[3]?.trim() || null
   } else {
-    const parts = itemName.split(' - ')
-    rowData.artist = parts.length >= 2 ? parts[0].trim() : null
-    rowData.title =
-      parts.length >= 2 ? parts.slice(1).join(' - ').trim() : itemName
+    // Fallback: Check if there is just a format in brackets at the end
+    const bracketMatch = itemName.match(/(.+?)\s*\(([^)]+)\)\s*$/)
+    if (bracketMatch) {
+      title = bracketMatch[1].trim()
+      format = bracketMatch[2].trim()
+    }
   }
 
-  return rowData
+  // 3. Final cleanup: If "Various" is in the artist field, keep it as Various
+  if (artist?.toLowerCase().includes('various')) artist = 'Various'
+
+  return {
+    imported_at: new Date(),
+    distributor: 'Flying Nun Records Limited',
+    item_code: itemCode,
+    catalogue_number: itemCode, // FN usually uses Item Code as Cat No
+    barcode: null, // CSV sample doesn't show a barcode column
+    artist: artist,
+    title: title,
+    format: format,
+    price: price,
+    is_nz_music: true, // It's Flying Nun, so almost everything is NZ music
+    label: 'Flying Nun',
+    genres: null,
+    released: null,
+    bin_location: null,
+    unit_sale_price_excl_gst: price
+  }
 }
