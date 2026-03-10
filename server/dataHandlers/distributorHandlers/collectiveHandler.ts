@@ -2,44 +2,47 @@
 import exceljs from 'exceljs'
 import { CatalogueRow } from '../../types/catalogue.js'
 
-export function mapCollectiveRow(
-  row: exceljs.Row,
-  distributor: string // This will be 'Collective (LP)' or 'Collective (CD)'
-): CatalogueRow {
-  // Column indices start from 1 (Column A).
-  const priceValue = row.getCell(6).value // Column F: PRICE
-  const barcodeValue = row.getCell(4).value // Column D: BARCODE
+export function mapCollectiveRow(row: exceljs.Row, distributor: string): CatalogueRow {
+  const getVal = (col: number) => row.getCell(col).value
+  const getText = (col: number) => getVal(col)?.toString().trim() || null
 
-  const rowData: CatalogueRow = {
-    imported_at: new Date(),
-    distributor: distributor,
-    // Map to correct columns:
-    artist: (row.getCell(1).value as string | undefined) || null, // Column A: ARTIST
-    title: (row.getCell(2).value as string | undefined) || null, // Column B: TITLE
-    catalogue_number: (row.getCell(3).value as string | undefined) || null, // Column C: CAT #
-    barcode: barcodeValue ? String(barcodeValue) : null, // Column D: BARCODE
-    format: (row.getCell(5).value as string | undefined) || null, // Column E: FORMAT
-    
-    label: 'Collective', // Static label
-    description: null,
-    released: null,
-    discogs_release_date: null,
-    genres: null,
-    bin_location: null,
-    item_code: null,
-    unit_sale_price_excl_gst: null,
+  const getPrice = (col: number) => {
+    const val = getVal(col)
+    if (typeof val === 'number') return val
+    if (typeof val === 'string') {
+      const parsed = parseFloat(val.replace(/[^0-9.]/g, ''))
+      return isNaN(parsed) ? null : parsed
+    }
+    return null
+  }
 
-    // Add standardized fields (not provided in source data, so default to null/false)
+  const artist = getText(1)
+  let title = getText(2) || ''
+  const formatValue = getText(5) || ''
+
+  // Safe Chop: Collective often puts "VINYL" or "VINYL-2" at the end of titles.
+  // We check if the title ends with the format code (e.g. "ALL EYEZ ON ME VINYL")
+  const formatBase = formatValue.split('-')[0] // Gets "VINYL" from "VINYL-2"
+  if (formatBase && title.toUpperCase().endsWith(formatBase.toUpperCase())) {
+    const potentialTitle = title.substring(0, title.toUpperCase().lastIndexOf(formatBase.toUpperCase())).trim()
+    if (potentialTitle.length > 0) title = potentialTitle
+  }
+
+  return {
+    imported_at: new Date(),
+    distributor: distributor,
+    artist: artist,
+    title: title,
+    catalogue_number: getText(3),
+    barcode: getText(4),
+    format: formatValue,
+    price: getPrice(6),
+    label: 'Collective',
     is_nz_music: false,
-    stock_on_hand: null,
-  }
-
-  rowData.price =
-    typeof priceValue === 'number'
-      ? priceValue
-      : typeof priceValue === 'string'
-      ? parseFloat(priceValue.replace('$', '').trim())
-      : null
-      
-  return rowData
+    bin_location: null,
+    item_code: null,
+    unit_sale_price_excl_gst: null,
+    released: null,
+    genres: null
+  }
 }
