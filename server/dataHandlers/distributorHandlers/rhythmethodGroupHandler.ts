@@ -1,45 +1,55 @@
-// server/dataHandlers/distributorHandlers/rhythmethodGroupHandler.ts
 import exceljs from 'exceljs'
 import { CatalogueRow } from '../../types/catalogue.js'
 
-export function mapRhythmethodGroupRow(
-  row: exceljs.Row,
-  actualDistributor: string,
-): CatalogueRow {
-  const getValue = (col: number) =>
-    row.getCell(col).value?.toString().trim() || null
-  const description = getValue(3) || ''
+export function mapRhythmethodGroupRow(row: exceljs.Row, actualDistributor: string): CatalogueRow {
+  const getVal = (col: number) => row.getCell(col).value
+  const getText = (col: number) => getVal(col)?.toString().trim() || null
 
-  const rowData: CatalogueRow = {
+  const getPrice = (col: number) => {
+    const val = getVal(col)
+    if (typeof val === 'number') return val
+    if (typeof val === 'string') {
+      const parsed = parseFloat(val.replace(/[^0-9.]/g, ''))
+      return isNaN(parsed) ? null : parsed
+    }
+    return null
+  }
+
+  const description = getText(3) || ''
+  const separator = " - "
+  const dashIndex = description.indexOf(separator)
+  
+  let artist = dashIndex !== -1 ? description.substring(0, dashIndex).trim() : null
+  let title = dashIndex !== -1 ? description.substring(dashIndex + separator.length).trim() : description
+
+  // Extract common format suffixes from the end of the title
+  let format = null
+  const formatMatch = title.match(/\s+(\d?LP|CD|7"|2LP|EP|VINYL)\s*$/i)
+  if (formatMatch) {
+    format = formatMatch[1].trim()
+    title = title.replace(formatMatch[0], '').trim()
+  }
+
+  // Handle SOH (e.g., "10+" becomes 10)
+  const rawSoh = getText(6)
+  const cleanSoh = rawSoh ? parseInt(rawSoh.replace(/[^0-9]/g, '')) : 0
+
+  return {
     imported_at: new Date(),
     distributor: actualDistributor,
-    catalogue_number: getValue(2),
-    barcode: getValue(4),
-    description: description,
-    price: parseFloat(getValue(5)?.replace(/[^0-9.]/g, '') || '0') || null,
-    stock_on_hand: parseInt(getValue(6) || '0') || 0,
+    catalogue_number: getText(2),
+    barcode: getText(4),
+    artist,
+    title,
+    price: getPrice(5),
+    format,
+    stock_on_hand: cleanSoh,
+    label: actualDistributor,
     is_nz_music: false,
-    label: actualDistributor.includes('Sony')
-      ? 'Sony Music'
-      : actualDistributor.includes('Warner')
-        ? 'Warner Music'
-        : 'Rhythmethod',
-    artist: null,
-    title: null,
-    format: null,
+    bin_location: null,
+    item_code: null,
+    unit_sale_price_excl_gst: null,
     released: null,
-    genres: null,
+    genres: null
   }
-
-  const regex =
-    /(.+?)\s*-\s*(.+?)(?:\s*(\d+LP|\d+CD|CD|LP|7"|10"|12"|Cassette|Tape|DVD|Blu-ray|EP))?$/i
-  const match = description.match(regex)
-
-  if (match) {
-    rowData.artist = match[1]?.trim()
-    rowData.title = match[2]?.trim()
-    rowData.format = match[3]?.trim()
-  }
-
-  return rowData
 }

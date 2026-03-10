@@ -25,7 +25,7 @@ export function mapFlyingNunRow(data: Record<string, string>): CatalogueRow {
   let format = null
 
   /**
-   * 🔍 Regex Breakdown:
+   * Regex Breakdown:
    * ^(.+?)        -> Artist (non-greedy)
    * \s*[:\-–—]\s* -> Separator (Colon or various dashes)
    * (.+?)         -> Title (non-greedy)
@@ -61,7 +61,7 @@ export function mapFlyingNunRow(data: Record<string, string>): CatalogueRow {
     title: title,
     format: format,
     price: price,
-    is_nz_music: true, // It's Flying Nun, so almost everything is NZ music
+    is_nz_music: true, // maybe confirm that everything on FN is nz?
     label: 'Flying Nun',
     genres: null,
     released: null,
