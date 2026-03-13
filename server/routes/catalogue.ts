@@ -12,6 +12,15 @@ import { checkJwt } from '../auth0/auth.js'
 const router = Router()
 router.use(checkJwt)
 
+router.get('/master-stats', async (req: Request, res: Response) => {
+  try {
+    const total = await db.getMasterCount()
+    res.status(200).json({ total })
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch master stats' })
+  }
+})
+
 router.post('/import', async (req: Request, res: Response) => {
   try {
     const { filename, distributor: distVal } = req.body
@@ -25,13 +34,9 @@ router.post('/import', async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'File not found' })
     const config = getDistributorConfig(distVal)
     if (!config) throw new Error('Config not found')
-    console.log(`[Import] Clearing staging table: ${config.rawTableName}`)
     await db.clearRawTable(config.rawTableName)
     const handler = getDistributorDataHandler(config)
     const dataToInsert = await handler(filePath, formatType)
-    console.log(
-      `[Import] Inserting ${dataToInsert.length} rows into ${config.rawTableName}`,
-    )
     const insertedCount = await db.importCatalogueData(
       config.rawTableName,
       dataToInsert,
@@ -44,20 +49,17 @@ router.post('/import', async (req: Request, res: Response) => {
         distributor: config.name,
       })
   } catch (error: any) {
-    console.error('[Import Error]', error.message)
     res.status(500).json({ message: 'Import failed' })
   }
 })
 
 router.post('/consolidate', async (req: Request, res: Response) => {
   try {
-    console.log('[Route] Consolidation triggered...')
     const count = await db.consolidateRawDataToMaster()
     if (count === 0)
       return res.status(400).json({ message: 'Staging is empty' })
     res.status(200).json({ message: 'Consolidation complete', count })
   } catch (error) {
-    console.error('[Route Error] Consolidation failed')
     res.status(500).json({ message: 'Consolidation failed' })
   }
 })
