@@ -96,8 +96,12 @@ export async function getMasterCatalogue(limit = 200) {
       'price',
       'source_distributor',
       'barcode',
+      'catalogue_number',
     )
-    .orderBy('artist', 'asc')
+    .orderByRaw(
+      "CASE WHEN artist = '' OR artist IS NULL THEN 'Various' ELSE artist END ASC",
+    )
+    .orderBy('title', 'asc')
     .limit(limit)
 }
 
@@ -117,7 +121,10 @@ export async function searchMasterCatalogue(
           .orWhereILike('barcode', `%${query}%`)
           .orWhereILike('catalogue_number', `%${query}%`)
     })
-    .orderBy('artist', 'asc')
+    .orderByRaw(
+      "CASE WHEN artist = '' OR artist IS NULL THEN 'Various' ELSE artist END ASC",
+    )
+    .orderBy('title', 'asc')
     .limit(200)
 }
 

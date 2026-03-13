@@ -1,86 +1,98 @@
-import React, { useState, useEffect } from 'react'
+import React from 'react'
+import SearchBar from './SearchBar.js'
+import { useCatalogue } from '../hooks/useCatalogue.js'
 
-const CatalogueList = () => {
-  const [items, setItems] = useState([])
-  const [sort, setSort] = useState({ col: 'artist', dir: 'asc' })
-
-  useEffect(() => {
-    fetch(`/api/v1/catalogue/master?sortCol=${sort.col}&sortDir=${sort.dir}`)
-      .then((res) => res.json())
-      .then(setItems)
-  }, [sort])
-
-  const toggleSort = (col) => {
-    setSort({
-      col,
-      dir: sort.col === col && sort.dir === 'asc' ? 'desc' : 'asc',
-    })
-  }
+export default function CatalogueList() {
+  const { results, loading, performSearch } = useCatalogue()
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">
-          Master Catalogue ({items.length})
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800 tracking-tight">
+          Catalogue Audit
         </h2>
-        <div className="space-x-2">
-          <button
-            onClick={() => toggleSort('artist')}
-            className="bg-gray-200 px-3 py-1 rounded text-sm"
-          >
-            Sort Artist
-          </button>
-          <button
-            onClick={() => toggleSort('price')}
-            className="bg-gray-200 px-3 py-1 rounded text-sm"
-          >
-            Sort Price
-          </button>
-        </div>
+        <span className="bg-blue-600 text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm">
+          {results.length} Records Shown
+        </span>
       </div>
 
-      <div className="overflow-x-auto max-h-[600px]">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50 sticky top-0">
+      <SearchBar onSearch={performSearch} />
+
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-gray-100 shadow-sm">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          <p className="mt-4 text-gray-500 font-medium">
+            Querying Master Database...
+          </p>
+        </div>
+      )}
+
+      <div className="bg-white shadow-xl rounded-xl overflow-hidden border border-gray-200">
+        <table className="min-w-full divide-y divide-gray-200 text-left">
+          <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-2 text-left text-xs font-bold uppercase text-gray-500">
+              <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">
                 Artist
               </th>
-              <th className="px-4 py-2 text-left text-xs font-bold uppercase text-gray-500">
-                Title
+              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                Title / Cat No
               </th>
-              <th className="px-4 py-2 text-left text-xs font-bold uppercase text-gray-500">
+              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
+                Distributor
+              </th>
+              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
                 Format
               </th>
-              <th className="px-4 py-2 text-left text-xs font-bold uppercase text-gray-500">
+              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                 Price
-              </th>
-              <th className="px-4 py-2 text-left text-xs font-bold uppercase text-gray-500">
-                Distributor
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
-            {items.map((item, i) => (
-              <tr key={i} className="hover:bg-gray-50">
-                <td className="px-4 py-2 text-sm font-medium">{item.artist}</td>
-                <td className="px-4 py-2 text-sm">{item.title}</td>
-                <td className="px-4 py-2 text-sm text-gray-500">
-                  {item.format}
+          <tbody className="divide-y divide-gray-100">
+            {results.map((item, i) => (
+              <tr
+                key={`${item.source_distributor}-${item.catalogue_number}-${i}`}
+                className="hover:bg-blue-50/30 transition-colors group"
+              >
+                <td className="px-6 py-4 text-sm font-bold text-gray-900">
+                  {item.artist || 'VARIOUS'}
                 </td>
-                <td className="px-4 py-2 text-sm font-bold text-green-600">
-                  ${item.price?.toFixed(2)}
+                <td className="px-6 py-4">
+                  <div className="text-sm text-gray-600 font-medium">
+                    {item.title}
+                  </div>
+                  <div className="text-[10px] text-gray-400 font-mono mt-0.5">
+                    {item.catalogue_number}
+                  </div>
                 </td>
-                <td className="px-4 py-2 text-xs text-gray-400">
-                  {item.source_distributor}
+                <td className="px-6 py-4 text-center">
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter">
+                    {item.source_distributor}
+                  </span>
+                </td>
+                <td className="px-6 py-4 text-center">
+                  <span className="inline-block text-[10px] font-black bg-gray-100 text-gray-500 px-2 py-1 rounded border border-gray-200">
+                    {item.format}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <span className="text-sm font-black text-green-700">
+                    ${item.price?.toFixed(2) || '0.00'}
+                  </span>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+
+        {!loading && results.length === 0 && (
+          <div className="text-center py-20 bg-gray-50 border-t border-gray-100">
+            <p className="text-gray-500 font-medium">
+              No records found. Try a different search term.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )
 }
-
-export default CatalogueList
