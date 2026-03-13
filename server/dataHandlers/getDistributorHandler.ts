@@ -13,7 +13,8 @@ const distributorConfigurations: DistributorConfig[] = [
     value: 'Border Music',
     rawTableName: 'border_music_raw',
     fileType: 'xlsx',
-    accept: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
+    accept:
+      '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
     headerRowsToSkip: 4,
     requiresFormatFilter: false,
   },
@@ -31,7 +32,8 @@ const distributorConfigurations: DistributorConfig[] = [
     value: 'Southbound',
     rawTableName: 'southbound_instock_raw',
     fileType: 'xlsx',
-    accept: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
+    accept:
+      '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
     headerRowsToSkip: 1,
     requiresFormatFilter: true,
   },
@@ -40,7 +42,8 @@ const distributorConfigurations: DistributorConfig[] = [
     value: 'Collective (LP)',
     rawTableName: 'collective_lp_raw',
     fileType: 'xlsx',
-    accept: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
+    accept:
+      '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
     headerRowsToSkip: 1,
     requiresFormatFilter: true,
   },
@@ -49,11 +52,11 @@ const distributorConfigurations: DistributorConfig[] = [
     value: 'Collective (CD)',
     rawTableName: 'collective_cd_raw',
     fileType: 'xlsx',
-    accept: '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
+    accept:
+      '.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel',
     headerRowsToSkip: 1,
     requiresFormatFilter: true,
   },
-  // Unified Rhythmethod Group configs pointing to the same DB table
   {
     name: 'Rhythmethod (SOH)',
     value: 'Rhythmethod',
@@ -83,29 +86,53 @@ const distributorConfigurations: DistributorConfig[] = [
   },
 ]
 
-export function getDistributorConfig(distributorValue: string): DistributorConfig | undefined {
-  return distributorConfigurations.find((config) => config.value === distributorValue)
+export function getDistributorConfig(
+  distributorValue: string,
+): DistributorConfig | undefined {
+  return distributorConfigurations.find(
+    (config) => config.value === distributorValue,
+  )
 }
 
-export function getDistributorDataHandler(config: DistributorConfig): DistributorHandler {
+export function getDistributorDataHandler(
+  config: DistributorConfig,
+): DistributorHandler {
   switch (config.value) {
     case 'Border Music':
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
         if (!worksheet) throw new Error('Worksheet not found')
-        return processExcelRows(worksheet, config.headerRowsToSkip, mapBorderMusicRow, config.value, formatType)
+        return processExcelRows(
+          worksheet,
+          config.headerRowsToSkip,
+          mapBorderMusicRow,
+          config.value,
+          formatType,
+        )
       }
 
     case 'Flying Nun Records Limited':
       return async (filePath, formatType) => {
-        return processCsvRows(filePath, config.headerRowsToSkip, mapFlyingNunRow, config.value, formatType)
+        return processCsvRows(
+          filePath,
+          config.headerRowsToSkip,
+          mapFlyingNunRow,
+          config.value,
+          formatType,
+        )
       }
 
     case 'Southbound':
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
         if (!worksheet) throw new Error('Worksheet not found')
-        return processExcelRows(worksheet, config.headerRowsToSkip, mapSouthboundRow, config.value, formatType)
+        return processExcelRows(
+          worksheet,
+          config.headerRowsToSkip,
+          mapSouthboundRow,
+          config.value,
+          formatType,
+        )
       }
 
     case 'Collective (LP)':
@@ -113,7 +140,13 @@ export function getDistributorDataHandler(config: DistributorConfig): Distributo
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
         if (!worksheet) throw new Error('Worksheet not found')
-        return processExcelRows(worksheet, config.headerRowsToSkip, mapCollectiveRow, config.value, formatType)
+        return processExcelRows(
+          worksheet,
+          config.headerRowsToSkip,
+          mapCollectiveRow,
+          config.value,
+          formatType,
+        )
       }
 
     case 'Rhythmethod':
@@ -122,8 +155,14 @@ export function getDistributorDataHandler(config: DistributorConfig): Distributo
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
         if (!worksheet) throw new Error('Worksheet not found')
-        // We pass config.value into the mapper so the record is tagged correctly in the DB
-        return processExcelRows(worksheet, config.headerRowsToSkip, (row) => mapRhythmethodGroupRow(row, config.value), config.value, formatType)
+        // Wrap mapper to inject the specific distributor name
+        return processExcelRows(
+          worksheet,
+          config.headerRowsToSkip,
+          (row) => mapRhythmethodGroupRow(row, config.value),
+          config.value,
+          formatType,
+        )
       }
 
     default:

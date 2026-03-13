@@ -1,9 +1,15 @@
 import exceljs from 'exceljs'
 import { CatalogueRow } from '../../types/catalogue.js'
 
-export function mapRhythmethodGroupRow(row: exceljs.Row, actualDistributor: string): CatalogueRow {
+export function mapRhythmethodGroupRow(
+  row: exceljs.Row,
+  actualDistributor: string,
+): CatalogueRow {
   const getVal = (col: number) => row.getCell(col).value
-  const getText = (col: number) => getVal(col)?.toString().trim() || null
+  const getText = (col: number) => {
+    const val = getVal(col)
+    return val ? val.toString().trim() : null
+  }
 
   const getPrice = (col: number) => {
     const val = getVal(col)
@@ -16,33 +22,41 @@ export function mapRhythmethodGroupRow(row: exceljs.Row, actualDistributor: stri
   }
 
   const description = getText(3) || ''
-  const separator = " - "
+  const separator = ' - '
   const dashIndex = description.indexOf(separator)
-  
-  let artist = dashIndex !== -1 ? description.substring(0, dashIndex).trim() : null
-  let title = dashIndex !== -1 ? description.substring(dashIndex + separator.length).trim() : description
 
-  // Extract common format suffixes from the end of the title
+  let artist =
+    dashIndex !== -1 ? description.substring(0, dashIndex).trim() : null
+  let title =
+    dashIndex !== -1
+      ? description.substring(dashIndex + separator.length).trim()
+      : description
+
+  // 🛠️ ENHANCED FORMAT LOGIC
+  // This looks for common format words at the end of the title.
+  // Including "VINYL" so "AMERICAN DREAM VINYL" results in Title: "AMERICAN DREAM"
   let format = null
-  const formatMatch = title.match(/\s+(\d?LP|CD|7"|2LP|EP|VINYL)\s*$/i)
+  const formatMatch = title.match(
+    /\s+(\d?LP|CD|7"|2LP|EP|VINYL|PICTURE DISC|DVD)\s*$/i,
+  )
   if (formatMatch) {
-    format = formatMatch[1].trim()
+    format = formatMatch[1].trim().toUpperCase()
+    // We keep the title clean so the "Unique Key" is consistent
     title = title.replace(formatMatch[0], '').trim()
   }
 
-  // Handle SOH (e.g., "10+" becomes 10)
   const rawSoh = getText(6)
   const cleanSoh = rawSoh ? parseInt(rawSoh.replace(/[^0-9]/g, '')) : 0
 
   return {
     imported_at: new Date(),
-    distributor: actualDistributor,
+    distributor: actualDistributor, // 👈 Passed from the route
     catalogue_number: getText(2),
     barcode: getText(4),
     artist,
     title,
     price: getPrice(5),
-    format,
+    format: format || 'VINYL', // Default to VINYL if not found in these specific sheets
     stock_on_hand: cleanSoh,
     label: actualDistributor,
     is_nz_music: false,
@@ -50,6 +64,6 @@ export function mapRhythmethodGroupRow(row: exceljs.Row, actualDistributor: stri
     item_code: null,
     unit_sale_price_excl_gst: null,
     released: null,
-    genres: null
+    genres: null,
   }
 }

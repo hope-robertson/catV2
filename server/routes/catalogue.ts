@@ -1,5 +1,3 @@
-// server/routes/catalogue.ts
-
 import { Router, Request, Response } from 'express'
 import * as db from '../db/catalogue.js'
 import {
@@ -34,6 +32,16 @@ router.post('/import', async (req: Request, res: Response) => {
         .status(400)
         .json({ message: 'Missing filename or distributor' })
 
+    // 🛡️ Filename mismatch guard
+    const lowerFile = filename.toLowerCase()
+    const lowerDistKeyword = distVal.toLowerCase().split(' ')[0]
+
+    if (!lowerFile.includes(lowerDistKeyword)) {
+      return res.status(400).json({
+        message: `Filename Mismatch: Selected '${distVal}' but file is '${filename}'.`,
+      })
+    }
+
     const filePath = path.resolve('uploads', filename)
     if (!fs.existsSync(filePath))
       return res.status(404).json({ message: 'File not found' })
@@ -41,13 +49,11 @@ router.post('/import', async (req: Request, res: Response) => {
     const config = getDistributorConfig(distVal)
     if (!config) throw new Error('Config not found')
 
-    // 1. We clear the RAW table for this specific distributor (This is fine!)
     await db.clearRawTable(config.rawTableName)
 
     const handler = getDistributorDataHandler(config)
     const dataToInsert = await handler(filePath, formatType)
 
-    // 2. Import into the staging table
     const insertedCount = await db.importCatalogueData(
       config.rawTableName,
       dataToInsert,
@@ -66,9 +72,6 @@ router.post('/import', async (req: Request, res: Response) => {
 
 router.post('/consolidate', async (req: Request, res: Response) => {
   try {
-    // 3. THIS IS THE CRITICAL STEP:
-    // Ensure your db.consolidateRawDataToMaster() uses .onConflict('barcode').merge()
-    // or similar logic to append data rather than overwrite.
     const count = await db.consolidateRawDataToMaster()
 
     if (count === 0)
