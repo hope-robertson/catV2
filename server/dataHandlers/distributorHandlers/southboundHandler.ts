@@ -2,89 +2,70 @@ import exceljs from 'exceljs'
 import { CatalogueRow } from '../../types/catalogue.js'
 
 export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
-  const getVal = (col: number) => row.getCell(col).value
+  // 1. Explicitly define what each column is
+  const colCatNo = row.getCell(1).value
+  const colDescription = row.getCell(2).value
+  const colDealerPrice = row.getCell(3).value // THIS is the price
+  const colFormat = row.getCell(4).value
+  const colBarcode = row.getCell(5).value
+  const colLabel = row.getCell(6).value
+  const colGenre = row.getCell(7).value
 
-  const getText = (col: number) => {
-    let val = getVal(col)?.toString().trim() || null
-    if (!val) return null
-    // Repair Southbound Mojibake and encoding artifacts
-    return val
-      .replace(/¬†/g, ' ')
-      .replace(/¬∫/g, 'º')
-      .replace(/√£/g, 'ã')
-      .replace(/‚Äù/g, '"')
-      .replace(/‚Äì/g, '-')
-      .replace(/‚Ä¶/g, '...')
-      .replace(/Äì/g, '-')
-      .trim()
+  // 2. Surgical Price Extraction (Only looks at colDealerPrice)
+  let finalPrice: number | null = null
+  if (typeof colDealerPrice === 'number') {
+    finalPrice = colDealerPrice
+  } else if (colDealerPrice) {
+    const cleanPrice = colDealerPrice.toString().replace(/[$,\s]/g, '')
+    finalPrice = parseFloat(cleanPrice) || null
   }
 
-  const getPrice = (col: number) => {
-    const val = getVal(col)
-    if (typeof val === 'number') return val
-    if (typeof val === 'string') {
-      // Strips only currency symbols and spaces to protect numbers in artist names
-      const cleanVal = val.replace(/[$,\s]/g, '')
-      const parsed = parseFloat(cleanVal)
-      return isNaN(parsed) ? null : parsed
-    }
-    return null
-  }
-
-  // Column Mapping: 1:Cat No, 2:Description, 3:Dealer (Price), 4:Format, 5:BarCode, 6:Label, 7:Genre
-  const rawDescription = getText(2) || ''
-  const formatValue = getText(4) || ''
-  const labelValue = getText(6) || ''
-  const genreValue = getText(7) || ''
-
+  // 3. Simple Artist/Title Split (Only looks at colDescription)
+  const desc = colDescription?.toString().trim() || ''
   const separator = ' - '
-  const dashIndex = rawDescription.indexOf(separator)
+  const dashIndex = desc.indexOf(separator)
 
-  let artist = null
-  let title = rawDescription
+  let artist: string | null = null
+  let title: string = desc
 
   if (dashIndex !== -1) {
-    // Standard split for Artist - Title
-    artist = rawDescription.substring(0, dashIndex).trim()
-    title = rawDescription.substring(dashIndex + separator.length).trim()
+    artist = desc.substring(0, dashIndex).trim()
+    title = desc.substring(dashIndex + separator.length).trim()
   } else {
-    // Accessory Fallback: Catches typos like "Acccessorie" by checking for 'acc'
-    const isAccessory =
-      formatValue?.toLowerCase().includes('acc') ||
-      genreValue?.toLowerCase().includes('acc')
-
-    if (isAccessory) {
-      artist = labelValue || 'Supplies'
-    } else {
-      artist = 'Various'
-    }
+    // If no dash, it's a supply/accessory. Use Label (col 6) as artist.
+    artist = colLabel?.toString().trim() || null
+    title = desc
   }
 
-  // Safe Chop: Remove format suffix if it matches the format column exactly
-  if (formatValue && title.toLowerCase().endsWith(formatValue.toLowerCase())) {
-    const potentialTitle = title
-      .substring(0, title.length - formatValue.length)
-      .trim()
-    if (title.length > formatValue.length) title = potentialTitle
+  // 4. Safe Chop (Only if Title ends exactly with Format)
+  const fmt = colFormat?.toString().trim() || ''
+  if (fmt && title.endsWith(` ${fmt}`)) {
+    title = title.substring(0, title.length - fmt.length).trim()
   }
 
-  const dealerPrice = getPrice(3)
+  // 5. Clean up the Unicode mess
+  const cleanTitle = title
+    .replace(/¬†/g, ' ')
+    .replace(/¬∫/g, 'º')
+    .replace(/√£/g, 'ã')
+    .replace(/‚Äù/g, '"')
+    .replace(/‚Äì/g, '-')
 
   return {
     imported_at: new Date(),
     distributor: 'Southbound Distribution Limited',
-    catalogue_number: getText(1),
+    catalogue_number: colCatNo?.toString() || null,
     artist: artist,
-    title: title,
-    price: dealerPrice,
-    format: formatValue,
-    barcode: getText(5),
-    label: labelValue,
-    genres: genreValue,
+    title: cleanTitle,
+    price: finalPrice,
+    format: fmt,
+    barcode: colBarcode?.toString() || null,
+    label: colLabel?.toString() || null,
+    genres: colGenre?.toString() || null,
     is_nz_music: false,
     bin_location: null,
     item_code: null,
-    unit_sale_price_excl_gst: dealerPrice,
+    unit_sale_price_excl_gst: finalPrice,
     released: null,
   }
 }
