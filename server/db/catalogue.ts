@@ -24,8 +24,8 @@ export async function importCatalogueData(
 
 export async function consolidateRawDataToMaster(): Promise<number> {
   try {
-    console.log('[DB] Starting Consolidation. Clearing Master...')
-    await knex('master_catalogue').del()
+    // 1. We no longer clear the Master table at the start
+    console.log('[DB] Starting Consolidation. Appending to Master...')
 
     const rawTableNames = [
       'flying_nun_records_limited_raw',
@@ -35,6 +35,8 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       'southbound_instock_raw',
       'rhythmethod_group_combined_raw',
     ]
+
+    // We use a Map to handle exact duplicates (same item from same distro)
     const uniqueItems = new Map<string, any>()
 
     for (const tableName of rawTableNames) {
@@ -42,6 +44,8 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       if (!exists) continue
 
       const rawData = await knex(tableName).select('*')
+      if (rawData.length === 0) continue
+
       console.log(`[DB] Found ${rawData.length} rows in ${tableName}`)
 
       for (const item of rawData) {
@@ -61,12 +65,9 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           rating: 0,
         }
 
-        // Key logic: barcode first, then string combo
-        const key =
-          masterItem.barcode ||
-          `${masterItem.artist}-${masterItem.title}-${masterItem.format}`
+        // 2. Composite Key: Keeps the item if the distributor is different
+        const key = `${masterItem.source_distributor}-${masterItem.barcode || masterItem.catalogue_number}-${masterItem.format}`
 
-        // Only add if we haven't seen this key yet
         if (key && !uniqueItems.has(key)) {
           uniqueItems.set(key, masterItem)
         }
@@ -75,10 +76,14 @@ export async function consolidateRawDataToMaster(): Promise<number> {
 
     const itemsToInsert = Array.from(uniqueItems.values())
     if (itemsToInsert.length > 0) {
-      console.log(
-        `[DB] Inserting ${itemsToInsert.length} unique items into Master...`,
-      )
-      await knex.batchInsert('master_catalogue', itemsToInsert, 500)
+      console.log(`[DB] Syncing ${itemsToInsert.length} items to Master...`)
+
+      // 3. Use onConflict to allow overlapping distributor stock
+      // This requires the 'catalogue_number' and 'source_distributor' fields
+      await knex('master_catalogue')
+        .insert(itemsToInsert)
+        .onConflict(['catalogue_number', 'source_distributor'])
+        .merge()
     }
 
     const finalCount = await getMasterCount()
