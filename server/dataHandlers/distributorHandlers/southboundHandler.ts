@@ -17,40 +17,49 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
     return isNaN(parsed) ? null : parsed
   }
 
-  // SOUTHBOUND INDEX MAPPING:
-  // 1: Cat No, 2: Description, 3: Dealer (Price), 4: Format, 5: BarCode, 6: Label, 7: Genre
-  const catNo = getText(1)
+  // Column Map: 1:Cat, 2:Description (Source), 5:Price, 6:Format, 8:Label, 9:Genre
   const rawDescription = getText(2) || ''
-  const priceValue = getPrice(3)
-  const formatValue = getText(4)
-  const barcodeValue = getText(5)
-  const labelValue = getText(6)
-  const genreValue = getText(7)
-
-  const separator = ' - '
-  const dashIndex = rawDescription.indexOf(separator)
+  const priceValue = getPrice(5)
+  const formatValue = getText(6)
+  const labelValue = getText(8)
+  const genreValue = getText(9)
 
   let finalArtist = null
   let finalTitle = rawDescription
 
-  // Logic: Split only on the first occurrence of " - "
-  if (dashIndex !== -1) {
-    finalArtist = rawDescription.substring(0, dashIndex).trim()
-    finalTitle = rawDescription.substring(dashIndex + separator.length).trim()
+  /**
+   * FLEXIBLE SPLITTER
+   * Splits on " - " OR " : "
+   * The \s* ensures it handles varying spaces around the separator
+   */
+  const splitRegex = /\s*[:\-–—]\s+/
+  const match = rawDescription.match(splitRegex)
+
+  if (match && match.index !== undefined) {
+    finalArtist = rawDescription.substring(0, match.index).trim()
+    finalTitle = rawDescription.substring(match.index + match[0].length).trim()
   } else {
-    // Fallback for accessories (Sleeves, etc.)
-    finalArtist = labelValue || null
-    finalTitle = rawDescription
+    // Handle record sleeves and cleaning supplies
+    const d = rawDescription.toLowerCase()
+    const isAccessory =
+      d.includes('sleeves') ||
+      d.includes('cleaning') ||
+      d.includes('brush') ||
+      d.includes('cloth') ||
+      d.includes('stylus')
+
+    if (isAccessory) finalArtist = labelValue || 'Supplies'
+    else finalArtist = null
   }
 
-  // Safe Chop (Strict): Only remove if it matches the format code exactly
+  // Strict Safe Chop: Only remove if title ends with exactly " [Format]"
   if (formatValue && finalTitle.endsWith(` ${formatValue}`)) {
     finalTitle = finalTitle
       .substring(0, finalTitle.length - formatValue.length)
       .trim()
   }
 
-  // Mojibake Repair
+  // Final Encoding Cleanup
   finalTitle = finalTitle
     .replace(/¬†/g, ' ')
     .replace(/¬∫/g, 'º')
@@ -63,8 +72,8 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
     distributor: 'Southbound Distribution Limited',
     artist: finalArtist,
     title: finalTitle,
-    catalogue_number: catNo,
-    barcode: barcodeValue,
+    catalogue_number: getText(1),
+    barcode: getText(7),
     format: formatValue || '',
     price: priceValue,
     is_nz_music: false,
