@@ -1,3 +1,4 @@
+// server/dataHandlers/distributorHandlers/borderMusicHandler.ts
 import exceljs from 'exceljs'
 import { CatalogueRow } from '../../types/catalogue.js'
 
@@ -22,24 +23,30 @@ export function mapBorderMusicRow(row: exceljs.Row): CatalogueRow {
   const catNo = getText(3)
   const priceValue = getPrice(6)
 
+  // Handle the compilation logic (starts with /)
   if (artist?.startsWith('/')) {
     const rawString = artist.substring(1).trim()
-    const ofMatch = rawString.match(/\s+OF\s+/i) // Flexible case-insensitive match
+    const ofMatch = rawString.match(/\s+OF\s+/i)
 
     if (ofMatch && ofMatch.index !== undefined) {
+      // Case: "/THE STUDIO WIZARDRY OF TODD RUNDGREN"
       title = rawString
       artist = rawString.substring(ofMatch.index + ofMatch[0].length).trim()
     } else {
+      // Case: "/NEW YORK CITY SALSA" -> artist becomes Various
+      // We keep the raw title if it exists, or use the rawString as the title
       title = title ? `${rawString} - ${title}` : rawString
       artist = 'Various'
     }
   }
+  // If no slash at the start, but contains a slash (Split Release), we leave it alone.
+  // The 'artist' variable remains as "Band A / Band B"
 
   return {
     imported_at: new Date(),
     distributor: 'Border Music',
-    artist: artist || 'Unknown Artist',
-    title: title || 'UNTITLED',
+    artist: artist || 'Various', // Fallback to Various for Border if Artist is missing
+    title: title || 'UNKNOWN', // Fallback to UNKNOWN for Title
     catalogue_number: catNo,
     barcode: getText(4),
     format: getText(5) || '',
