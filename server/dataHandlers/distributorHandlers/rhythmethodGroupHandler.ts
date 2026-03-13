@@ -32,31 +32,33 @@ export function mapRhythmethodGroupRow(
       ? description.substring(dashIndex + separator.length).trim()
       : description
 
-  // 🛠️ ENHANCED FORMAT LOGIC
-  // This looks for common format words at the end of the title.
-  // Including "VINYL" so "AMERICAN DREAM VINYL" results in Title: "AMERICAN DREAM"
-  let format = null
-  const formatMatch = title.match(
-    /\s+(\d?LP|CD|7"|2LP|EP|VINYL|PICTURE DISC|DVD)\s*$/i,
-  )
-  if (formatMatch) {
-    format = formatMatch[1].trim().toUpperCase()
-    // We keep the title clean so the "Unique Key" is consistent
-    title = title.replace(formatMatch[0], '').trim()
-  }
+  // 1. Identify Format for the specific column
+  let format = 'VINYL' // Default for these spreadsheets
+  const lowerDesc = description.toLowerCase()
+  if (lowerDesc.includes(' cd')) format = 'CD'
+  else if (lowerDesc.includes(' 7"')) format = '7"'
+  else if (lowerDesc.includes(' 12"')) format = '12"'
+  else if (lowerDesc.includes(' ep')) format = 'EP'
+  else if (lowerDesc.includes(' 2lp')) format = '2LP'
+  else if (lowerDesc.includes(' dvd')) format = 'DVD'
+
+  // 2. Soft Title Cleaning
+  // This ONLY removes the generic "VINYL", "LP", or "CD" if it is the absolute last word.
+  // It preserves descriptors like "GOLD NUGGET", "COLOURED", or "ANNIVERSARY".
+  title = title.replace(/\s+(VINYL|LP|CD)$/i, '').trim()
 
   const rawSoh = getText(6)
   const cleanSoh = rawSoh ? parseInt(rawSoh.replace(/[^0-9]/g, '')) : 0
 
   return {
     imported_at: new Date(),
-    distributor: actualDistributor, // 👈 Passed from the route
+    distributor: actualDistributor,
     catalogue_number: getText(2),
     barcode: getText(4),
     artist,
     title,
     price: getPrice(5),
-    format: format || 'VINYL', // Default to VINYL if not found in these specific sheets
+    format,
     stock_on_hand: cleanSoh,
     label: actualDistributor,
     is_nz_music: false,
