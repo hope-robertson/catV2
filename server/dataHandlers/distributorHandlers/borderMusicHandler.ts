@@ -18,35 +18,63 @@ export function mapBorderMusicRow(row: exceljs.Row): CatalogueRow {
     return isNaN(parsed) ? null : parsed
   }
 
-  let artist = getText(1)
-  let title = getText(2)
+  let rawArtist = getText(1)
+  let rawTitle = getText(2)
   const catNo = getText(3)
   const priceValue = getPrice(6)
 
-  // Handle the compilation logic (starts with /)
-  if (artist?.startsWith('/')) {
-    const rawString = artist.substring(1).trim()
-    const ofMatch = rawString.match(/\s+OF\s+/i)
+  let finalArtist = rawArtist || 'Unknown Artist'
+  let finalTitle = rawTitle || 'UNKNOWN'
 
-    if (ofMatch && ofMatch.index !== undefined) {
-      // Case: "/THE STUDIO WIZARDRY OF TODD RUNDGREN"
-      title = rawString
-      artist = rawString.substring(ofMatch.index + ofMatch[0].length).trim()
+  // Normalize for logic checks
+  const upperArtist = rawArtist?.toUpperCase() || ''
+
+  // CASE 1: The "OF" Extraction (Songbooks/Projects)
+  // Handles: "/A WAY TO MAKE A LIVING: THE DOLLY PARTON SONGBOOK"
+  const ofMatch = upperArtist.match(/\s+OF\s+([^/]+)$/)
+  if (
+    ofMatch &&
+    (upperArtist.includes('SONGBOOK') || upperArtist.startsWith('/'))
+  ) {
+    finalTitle = rawArtist!.startsWith('/')
+      ? rawArtist!.substring(1).trim()
+      : rawArtist!
+    finalArtist = ofMatch[1].trim()
+  }
+
+  // CASE 2: The "Presenter" or Compilation Slash
+  // Handles: "BOBBY GILLESPIE PRESENTS..." or "/NEW YORK CITY SALSA"
+  else if (
+    upperArtist.startsWith('/') ||
+    upperArtist.includes(' PRESENTS ') ||
+    upperArtist.includes(' PRESENT ')
+  ) {
+    const cleanString = rawArtist!.startsWith('/')
+      ? rawArtist!.substring(1).trim()
+      : rawArtist!
+    // If the spreadsheet title is empty, use the cleanString as title and Various as artist
+    if (!rawTitle) {
+      finalTitle = cleanString
+      finalArtist = 'Various'
     } else {
-      // Case: "/NEW YORK CITY SALSA" -> artist becomes Various
-      // We keep the raw title if it exists, or use the rawString as the title
-      title = title ? `${rawString} - ${title}` : rawString
-      artist = 'Various'
+      // If there IS a title (e.g. Artist: "/SUPERFUNK", Title: "VOL 2")
+      finalTitle = `${cleanString} - ${rawTitle}`
+      finalArtist = 'Various'
     }
   }
-  // If no slash at the start, but contains a slash (Split Release), we leave it alone.
-  // The 'artist' variable remains as "Band A / Band B"
+
+  // CASE 3: Empty Title Fallback (General)
+  // If no logic triggered but title is empty, move artist to title
+  else if (!rawTitle && rawArtist) {
+    finalTitle = rawArtist
+    finalArtist = 'Various'
+  }
 
   return {
     imported_at: new Date(),
     distributor: 'Border Music',
-    artist: artist || 'Various', // Fallback to Various for Border if Artist is missing
-    title: title || 'UNKNOWN', // Fallback to UNKNOWN for Title
+    artist: finalArtist,
+    title: finalTitle,
     catalogue_number: catNo,
     barcode: getText(4),
     format: getText(5) || '',

@@ -6,22 +6,36 @@ export async function importCatalogueData(
   data: CatalogueRow[],
 ): Promise<number> {
   try {
+    console.log(`[DB] Starting import for ${tableName}. Clearing old rows...`)
     await knex(tableName).del()
+
     if (data.length > 0) {
       const BATCH_SIZE = 500
+      console.log(
+        `[DB] Batch inserting ${data.length} rows into ${tableName}...`,
+      )
       await knex.batchInsert(tableName, data, BATCH_SIZE)
+
+      // Quick verification count
+      const countCheck = await knex(tableName).count('id as cnt').first()
+      console.log(
+        `[DB] Success: ${tableName} now contains ${countCheck?.cnt} rows.`,
+      )
+
       return data.length
     }
     return 0
   } catch (error) {
-    console.error(`Error inserting into ${tableName}:`, error)
+    console.error(`[DB Error] Failed inserting into ${tableName}:`, error)
     throw error
   }
 }
 
 export async function consolidateRawDataToMaster(): Promise<number> {
   try {
+    console.log('[DB] Starting Consolidation. Clearing Master Catalogue...')
     await knex('master_catalogue').del()
+
     const rawTableNames = [
       'flying_nun_records_limited_raw',
       'border_music_raw',
@@ -35,6 +49,10 @@ export async function consolidateRawDataToMaster(): Promise<number> {
 
     for (const tableName of rawTableNames) {
       const rawData = await knex(tableName).select('*')
+      console.log(
+        `[DB] Consolidating ${rawData.length} rows from ${tableName}...`,
+      )
+
       for (const item of rawData) {
         const masterItem: MasterCatalogueRow = {
           ...item,
@@ -50,11 +68,18 @@ export async function consolidateRawDataToMaster(): Promise<number> {
 
     const itemsToInsert = Array.from(uniqueItems.values())
     if (itemsToInsert.length > 0) {
+      console.log(
+        `[DB] Inserting ${itemsToInsert.length} unique items into Master...`,
+      )
       await knex.batchInsert('master_catalogue', itemsToInsert, 500)
     }
+
+    const finalCount = await knex('master_catalogue').count('id as cnt').first()
+    console.log(`[DB] Consolidation complete. Master total: ${finalCount?.cnt}`)
+
     return itemsToInsert.length
   } catch (error) {
-    console.error('Consolidation error:', error)
+    console.error('[DB Error] Consolidation error:', error)
     throw error
   }
 }
@@ -105,9 +130,10 @@ export async function updateRecordRating(
 
 export async function clearRawTable(tableName: string): Promise<void> {
   try {
+    console.log(`[DB] Explicitly clearing ${tableName}...`)
     await knex(tableName).del()
   } catch (error) {
-    console.error(`Error clearing table ${tableName}:`, error)
+    console.error(`[DB Error] Error clearing table ${tableName}:`, error)
     throw error
   }
 }
