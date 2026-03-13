@@ -18,7 +18,7 @@ export async function up(knex) {
       table.string('released').nullable()
       table.text('description').nullable()
 
-      // 1. REMOVED .unique() from barcode to allow distributor overlap
+      // Barcode is no longer unique on its own to allow for multiple distributors
       table.string('barcode').nullable()
       table.string('catalogue_number').nullable()
       table.float('price').nullable()
@@ -37,15 +37,23 @@ export async function up(knex) {
       table.text('image_url').nullable()
       table.json('tracklist').nullable()
 
+      // Staff curation fields
       table.integer('popularity_rating').nullable()
       table.text('staff_blurb').nullable()
 
       table.timestamps(true, true)
 
-      // 2. NEW: Composite Unique Key
-      // This prevents the EXACT same record from the EXACT same distributor
-      // being added twice, but allows DIFFERENT distributors to stock the same item.
-      table.unique(['catalogue_number', 'source_distributor'])
+      // 🛠️ THE CRITICAL CHANGE:
+      // This index MUST match the .onConflict() array in your catalogue.ts file.
+      // It allows:
+      // 1. Same Cat No from DIFFERENT distributors.
+      // 2. Same Cat No from SAME distributor but DIFFERENT Title (e.g., Red vs Black Vinyl).
+      table.unique([
+        'catalogue_number',
+        'source_distributor',
+        'title',
+        'format',
+      ])
     })
   } else {
     console.log('Table master_catalogue already exists. Skipping creation.')
