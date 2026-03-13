@@ -17,7 +17,9 @@ export async function up(knex) {
       table.string('format').nullable()
       table.string('released').nullable()
       table.text('description').nullable()
-      table.string('barcode').unique().nullable()
+
+      // 1. REMOVED .unique() from barcode to allow distributor overlap
+      table.string('barcode').nullable()
       table.string('catalogue_number').nullable()
       table.float('price').nullable()
       table.string('bin_location').nullable()
@@ -35,11 +37,15 @@ export async function up(knex) {
       table.text('image_url').nullable()
       table.json('tracklist').nullable()
 
-      // NEW: Your new fields for staff curation
-      table.integer('popularity_rating').nullable() // 1: Risky, 2: Could be reviewed, 3: Banger
+      table.integer('popularity_rating').nullable()
       table.text('staff_blurb').nullable()
 
       table.timestamps(true, true)
+
+      // 2. NEW: Composite Unique Key
+      // This prevents the EXACT same record from the EXACT same distributor
+      // being added twice, but allows DIFFERENT distributors to stock the same item.
+      table.unique(['catalogue_number', 'source_distributor'])
     })
   } else {
     console.log('Table master_catalogue already exists. Skipping creation.')

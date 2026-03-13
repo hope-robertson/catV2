@@ -24,7 +24,7 @@ export async function importCatalogueData(
 
 export async function consolidateRawDataToMaster(): Promise<number> {
   try {
-    // 1. We no longer clear the Master table at the start
+    // 1. We no longer clear the Master table at the start to ensure persistence
     console.log('[DB] Starting Consolidation. Appending to Master...')
 
     const rawTableNames = [
@@ -36,7 +36,7 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       'rhythmethod_group_combined_raw',
     ]
 
-    // We use a Map to handle exact duplicates (same item from same distro)
+    // Use a Map to prevent exact duplicates (same item from same distro)
     const uniqueItems = new Map<string, any>()
 
     for (const tableName of rawTableNames) {
@@ -65,7 +65,7 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           rating: 0,
         }
 
-        // 2. Composite Key: Keeps the item if the distributor is different
+        // 2. Composite Key: Preserves the row if the distributor is different
         const key = `${masterItem.source_distributor}-${masterItem.barcode || masterItem.catalogue_number}-${masterItem.format}`
 
         if (key && !uniqueItems.has(key)) {
@@ -75,15 +75,27 @@ export async function consolidateRawDataToMaster(): Promise<number> {
     }
 
     const itemsToInsert = Array.from(uniqueItems.values())
-    if (itemsToInsert.length > 0) {
-      console.log(`[DB] Syncing ${itemsToInsert.length} items to Master...`)
 
-      // 3. Use onConflict to allow overlapping distributor stock
-      // This requires the 'catalogue_number' and 'source_distributor' fields
-      await knex('master_catalogue')
-        .insert(itemsToInsert)
-        .onConflict(['catalogue_number', 'source_distributor'])
-        .merge()
+    if (itemsToInsert.length > 0) {
+      // 🚀 THE FIX: Batch processing to avoid "Too many SQL variables"
+      const chunkSize = 100
+      console.log(
+        `[DB] Syncing ${itemsToInsert.length} items to Master in batches of ${chunkSize}...`,
+      )
+
+      for (let i = 0; i < itemsToInsert.length; i += chunkSize) {
+        const chunk = itemsToInsert.slice(i, i + chunkSize)
+
+        await knex('master_catalogue')
+          .insert(chunk)
+          .onConflict(['catalogue_number', 'source_distributor'])
+          .merge()
+
+        // Optional: log progress for the huge Southbound file
+        if (i % 1000 === 0 && i > 0) {
+          console.log(`[DB] ...processed ${i} items`)
+        }
+      }
     }
 
     const finalCount = await getMasterCount()
