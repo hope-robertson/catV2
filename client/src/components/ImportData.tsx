@@ -9,6 +9,7 @@ export default function ImportData() {
   const [isUploading, setIsUploading] = useState(false)
   const [previewData, setPreviewData] = useState<any[]>([])
   const [isConsolidating, setIsConsolidating] = useState(false)
+  const [masterTotal, setMasterTotal] = useState<number>(0)
   const [stats, setStats] = useState<{
     count: number | null
     dist: string | null
@@ -25,9 +26,22 @@ export default function ImportData() {
     { name: 'Warner Music (SOH)', value: 'Warner Music' },
   ]
 
+  const fetchMasterStats = async () => {
+    try {
+      const token = await getAccessTokenSilently()
+      const res = await fetch('/api/v1/catalogue/master-stats', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      setMasterTotal(data.total)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
   useEffect(() => {
-    setPreviewData([])
-  }, [distributor])
+    if (isAuthenticated) fetchMasterStats()
+  }, [isAuthenticated])
 
   const handleUpload = async () => {
     if (!isAuthenticated || !file) return alert('Selection required')
@@ -41,7 +55,6 @@ export default function ImportData() {
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       })
-      if (!uploadRes.ok) throw new Error('Upload failed')
       const { filename } = await uploadRes.json()
       const importRes = await fetch('/api/v1/catalogue/import', {
         method: 'POST',
@@ -55,11 +68,9 @@ export default function ImportData() {
       if (importRes.ok) {
         setStats({ count: result.stagedCount, dist: result.distributor })
         fetchPreview()
-      } else {
-        alert(`Import Error: ${result.message}`)
       }
     } catch (err: any) {
-      alert(`Process failed: ${err.message}`)
+      alert(err.message)
     } finally {
       setIsUploading(false)
     }
@@ -87,6 +98,7 @@ export default function ImportData() {
         alert('Consolidation Complete')
         setPreviewData([])
         setStats({ count: null, dist: null })
+        fetchMasterStats()
       }
     } catch (err) {
       alert('Consolidation failed')
@@ -97,23 +109,31 @@ export default function ImportData() {
 
   if (!isAuthenticated)
     return (
-      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded max-w-5xl mx-auto">
-        <p className="text-yellow-700">Please log in to manage data imports.</p>
-      </div>
+      <div className="p-4 text-yellow-700 bg-yellow-50">Please log in.</div>
     )
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
+      <div className="flex justify-between items-center bg-gray-900 text-white p-5 rounded-xl shadow-lg">
+        <h1 className="text-xl font-bold tracking-tight">Catalogue Staging</h1>
+        <div className="flex items-center gap-3">
+          <span className="text-gray-400 text-xs uppercase font-bold">
+            Total Master Items
+          </span>
+          <span className="bg-green-600 px-4 py-1 rounded-full text-lg font-mono font-bold">
+            {masterTotal.toLocaleString()}
+          </span>
+        </div>
+      </div>
+
       <DataIntegrityDashboard
         fileName={file?.name || null}
         stagedCount={stats.count}
         distributor={stats.dist}
         isConsolidating={isConsolidating}
       />
+
       <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">
-          Catalogue Management
-        </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 border-b pb-8">
           <section className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -133,26 +153,6 @@ export default function ImportData() {
                 </option>
               ))}
             </select>
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800 space-y-1">
-              <p className="font-bold">{distributor} Requirements:</p>
-              {distributor === 'Southbound' && (
-                <p>Artist - Title (A), Price (C), Format (D)</p>
-              )}
-              {distributor === 'Border Music' && (
-                <>
-                  <p>Col F Price. Logic: "/SUPERFUNK" → Artist: Various</p>
-                  <p className="italic opacity-70">
-                    "/STUDIO WIZARDRY OF TODD RUNDGREN" → Artist: TODD RUNDGREN
-                  </p>
-                </>
-              )}
-              {distributor === 'Flying Nun Records Limited' && (
-                <p>Item Name cleaning + Bracket extraction.</p>
-              )}
-              {['Sony Music', 'Warner Music', 'Rhythmethod'].includes(
-                distributor,
-              ) && <p>SOH logic enabled. Parsing "10+" as 10.</p>}
-            </div>
             <input
               type="file"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
@@ -161,11 +161,12 @@ export default function ImportData() {
             <button
               onClick={handleUpload}
               disabled={isUploading}
-              className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 font-bold"
+              className="w-full bg-blue-600 text-white py-2 rounded-md font-bold"
             >
               {isUploading ? 'Processing...' : 'Upload to Staging'}
             </button>
           </section>
+
           <section className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
               <span className="bg-green-100 text-green-600 w-6 h-6 rounded-full flex items-center justify-center text-sm">
@@ -173,73 +174,38 @@ export default function ImportData() {
               </span>
               Merge to Master
             </h3>
-            <p className="text-sm text-gray-500">
-              Review results below before merging to the Master Catalogue.
-            </p>
             <button
               onClick={handleConsolidate}
               disabled={isConsolidating || previewData.length === 0}
-              className="w-full bg-green-600 text-white py-2 rounded-md hover:bg-green-700 disabled:bg-gray-100 disabled:text-gray-400 font-bold"
+              className="w-full bg-green-600 text-white py-2 rounded-md font-bold"
             >
               {isConsolidating ? 'Merging...' : 'Consolidate to Master'}
             </button>
           </section>
         </div>
+
         {previewData.length > 0 && (
-          <div className="mt-8">
-            <h3 className="text-lg font-semibold mb-4 text-orange-600 flex items-center gap-2">
-              Scrubber Preview{' '}
-              <span className="text-xs font-normal text-gray-400 uppercase tracking-widest">
-                (Check Artist/Title Separation)
-              </span>
-            </h3>
-            <div className="overflow-x-auto border border-gray-200 rounded-lg">
-              <table className="w-full text-left text-sm border-collapse">
-                <thead className="bg-gray-50 text-gray-600 font-bold">
-                  <tr>
-                    <th className="p-3 border-b">Source String</th>
-                    <th className="p-3 border-b text-blue-600">
-                      Scrubbed Artist
-                    </th>
-                    <th className="p-3 border-b text-blue-600">
-                      Scrubbed Title
-                    </th>
-                    <th className="p-3 border-b">Format</th>
-                    <th className="p-3 border-b text-right">Price</th>
+          <div className="mt-8 overflow-x-auto border rounded-lg">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-gray-50 font-bold">
+                <tr>
+                  <th className="p-3 border-b">Artist</th>
+                  <th className="p-3 border-b">Title</th>
+                  <th className="p-3 border-b text-right">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {previewData.map((row, idx) => (
+                  <tr key={idx} className="hover:bg-blue-50/50">
+                    <td className="p-3 font-semibold">{row.scrubbed.artist}</td>
+                    <td className="p-3">{row.scrubbed.title}</td>
+                    <td className="p-3 text-right font-mono text-green-700">
+                      ${(row.scrubbed.price || 0).toFixed(2)}
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {previewData.map((row, idx) => (
-                    <tr
-                      key={idx}
-                      className="hover:bg-blue-50/50 transition-colors"
-                    >
-                      <td className="p-3 text-gray-400 italic text-xs max-w-[180px] truncate">
-                        {row.original.artist || ''} {row.original.title || ''}
-                      </td>
-                      <td className="p-3 font-semibold text-gray-900 border-l border-blue-100 bg-blue-50/20">
-                        {row.scrubbed.artist || (
-                          <span className="text-red-300 italic">None</span>
-                        )}
-                      </td>
-                      <td className="p-3 text-gray-800">
-                        {row.scrubbed.title}
-                      </td>
-                      <td className="p-3">
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-bold uppercase tracking-tight">
-                          {row.scrubbed.format || 'N/A'}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right font-mono font-medium text-green-700">
-                        {row.scrubbed.price
-                          ? `$${row.scrubbed.price.toFixed(2)}`
-                          : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
