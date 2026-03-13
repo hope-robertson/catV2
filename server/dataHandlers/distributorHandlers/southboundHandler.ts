@@ -7,6 +7,7 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
   const getText = (col: number) => {
     let val = getVal(col)?.toString().trim() || null
     if (!val) return null
+    // Fixing Southbound Unicode and stripping @ prefixes
     return val
       .replace(/¬†/g, ' ')
       .replace(/¬∫/g, 'º')
@@ -14,7 +15,7 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
       .replace(/‚Äù/g, '"')
       .replace(/‚Äì/g, '-')
       .replace(/‚Ä¶/g, '...')
-      .replace(/^@\s*(\(AT\))?\s*/i, '') // Remove @ and @ (AT)
+      .replace(/^@\s*(\(AT\))?\s*/i, '')
       .trim()
   }
 
@@ -22,6 +23,8 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
     const val = getVal(col)
     if (typeof val === 'number') return val
     if (typeof val === 'string') {
+      // FIX: Only strip currency/spaces so "10,000 Maniacs" in Description
+      // doesn't leak into the price calculation
       const cleanVal = val.replace(/[$,\s]/g, '')
       const parsed = parseFloat(cleanVal)
       return isNaN(parsed) ? null : parsed
@@ -29,41 +32,48 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
     return null
   }
 
-  // Column Mapping based on your spreadsheet sample:
-  // 1: Cat No, 3: Artist, 4: Title, 5: Dealer (Price), 6: Format, 7: Barcode, 8: Label, 9: Genre
-  const rawArtist = getText(3)
-  const rawTitle = getText(4) || 'UNKNOWN'
-  const formatValue = getText(6) || ''
+  // Headers: 1:Cat No, 2:Description, 3:Dealer, 4:Format, 5:BarCode, 6:Label, 7:Genre
+  const rawDescription = getText(2) || ''
+  const formatValue = getText(4) || ''
+  const genreValue = getText(7) || ''
 
-  let finalTitle = rawTitle
+  const separator = ' - '
+  const dashIndex = rawDescription.indexOf(separator)
 
-  // Safe Chop: Remove format from title ONLY if it matches the format column
-  // This keeps "(olive Green Vinyl)" but removes the trailing "LP"
-  if (
-    formatValue &&
-    finalTitle.toLowerCase().endsWith(formatValue.toLowerCase())
-  ) {
-    const potentialTitle = finalTitle
-      .substring(0, finalTitle.length - formatValue.length)
+  // Logic: Use Genre as fallback Artist for accessories/sleeves
+  let artist =
+    dashIndex !== -1
+      ? rawDescription.substring(0, dashIndex).trim()
+      : genreValue || 'Various'
+  let title =
+    dashIndex !== -1
+      ? rawDescription.substring(dashIndex + separator.length).trim()
+      : rawDescription
+
+  if (formatValue && title.toLowerCase().endsWith(formatValue.toLowerCase())) {
+    const potentialTitle = title
+      .substring(0, title.length - formatValue.length)
       .trim()
-    if (finalTitle.length > formatValue.length) finalTitle = potentialTitle
+    if (title.length > formatValue.length) title = potentialTitle
   }
+
+  const dealerPrice = getPrice(3)
 
   return {
     imported_at: new Date(),
     distributor: 'Southbound Distribution Limited',
     catalogue_number: getText(1),
-    artist: rawArtist || 'Unknown Artist',
-    title: finalTitle,
-    price: getPrice(5), // Dealer column
+    artist,
+    title,
+    price: dealerPrice,
     format: formatValue,
-    barcode: getText(7),
-    label: getText(8),
-    genres: getText(9),
+    barcode: getText(5),
+    label: getText(6),
+    genres: genreValue,
     is_nz_music: false,
     bin_location: null,
     item_code: null,
-    unit_sale_price_excl_gst: getPrice(5),
+    unit_sale_price_excl_gst: dealerPrice,
     released: null,
   }
 }
