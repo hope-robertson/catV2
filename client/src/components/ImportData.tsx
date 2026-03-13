@@ -156,20 +156,6 @@ export default function ImportData() {
                 </option>
               ))}
             </select>
-
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800 space-y-1">
-              <p className="font-bold">{distributor} Logic:</p>
-              {distributor === 'Border Music' && (
-                <p>
-                  Leading "/" or "Presents" → Various. Empty Title fallback
-                  enabled.
-                </p>
-              )}
-              {distributor === 'Flying Nun Records Limited' && (
-                <p>Item Name cleaning + Bracket extraction.</p>
-              )}
-            </div>
-
             <input
               type="file"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
@@ -178,7 +164,7 @@ export default function ImportData() {
             <button
               onClick={handleUpload}
               disabled={isUploading}
-              className="w-full bg-blue-600 text-white py-2 rounded-md font-bold"
+              className="w-full bg-blue-600 text-white py-2 rounded-md font-bold hover:bg-blue-700"
             >
               {isUploading ? 'Processing...' : 'Upload to Staging'}
             </button>
@@ -194,7 +180,7 @@ export default function ImportData() {
             <button
               onClick={handleConsolidate}
               disabled={isConsolidating || previewData.length === 0}
-              className="w-full bg-green-600 text-white py-2 rounded-md font-bold"
+              className="w-full bg-green-600 text-white py-2 rounded-md font-bold hover:bg-green-700"
             >
               {isConsolidating ? 'Merging...' : 'Consolidate to Master'}
             </button>
@@ -230,15 +216,15 @@ export default function ImportData() {
                         {row.original.artist || ''} {row.original.title || ''}
                       </td>
                       <td className="p-3 font-semibold text-gray-900 border-l border-blue-100 bg-blue-50/20">
-                        {row.scrubbed.artist || (
-                          <span className="text-red-300 italic">None</span>
-                        )}
+                        {row.scrubbed.artist}
                       </td>
                       <td className="p-3 text-gray-800">
                         {row.scrubbed.title}
                       </td>
-                      <td className="p-3 text-right font-mono text-green-700">
-                        ${(row.scrubbed.price || 0).toFixed(2)}
+                      <td className="p-3 text-right font-mono font-medium text-green-700">
+                        {row.scrubbed.price
+                          ? `$${row.scrubbed.price.toFixed(2)}`
+                          : '—'}
                       </td>
                     </tr>
                   ))}

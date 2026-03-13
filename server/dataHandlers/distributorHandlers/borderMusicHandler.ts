@@ -21,20 +21,23 @@ export function mapBorderMusicRow(row: exceljs.Row): CatalogueRow {
   const catNo = getText(3)
   const priceValue = getPrice(6)
 
-  let finalArtist = rawArtist || 'Various'
+  let finalArtist = rawArtist || 'Unknown Artist'
   let finalTitle = rawTitle || 'UNKNOWN'
   const upperArtist = rawArtist?.toUpperCase() || ''
 
+  // 1. Specific extraction for Songbooks/Wizardry
   const ofMatch = upperArtist.match(/\s+OF\s+([^/]+)$/)
   if (
     ofMatch &&
-    (upperArtist.includes('SONGBOOK') || upperArtist.startsWith('/'))
+    (upperArtist.includes('SONGBOOK') || upperArtist.includes('WIZARDRY'))
   ) {
     finalTitle = rawArtist!.startsWith('/')
       ? rawArtist!.substring(1).trim()
       : rawArtist!
     finalArtist = ofMatch[1].trim()
-  } else if (
+  }
+  // 2. Compilation check (Leading slash or "Presents")
+  else if (
     upperArtist.startsWith('/') ||
     upperArtist.includes(' PRESENTS ') ||
     upperArtist.includes(' PRESENT ')
@@ -42,11 +45,14 @@ export function mapBorderMusicRow(row: exceljs.Row): CatalogueRow {
     const cleanString = rawArtist!.startsWith('/')
       ? rawArtist!.substring(1).trim()
       : rawArtist!
-    finalTitle = rawTitle ? `${cleanString} - ${rawTitle}` : cleanString
-    finalArtist = 'Various'
-  } else if (!rawTitle && rawArtist && !rawArtist.includes('/')) {
-    finalTitle = rawArtist
-    finalArtist = 'Various'
+    // If Title is empty in the sheet, move the compilation name to Title and use Various
+    if (!rawTitle) {
+      finalTitle = cleanString
+      finalArtist = 'Various'
+    } else {
+      finalTitle = `${cleanString} - ${rawTitle}`
+      finalArtist = 'Various'
+    }
   }
 
   return {
