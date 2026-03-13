@@ -7,7 +7,7 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
   const getText = (col: number) => {
     let val = getVal(col)?.toString().trim() || null
     if (!val) return null
-    // Repair Southbound Mojibake (98º, etc)
+    // Repair Southbound Mojibake and encoding artifacts
     return val
       .replace(/¬†/g, ' ')
       .replace(/¬∫/g, 'º')
@@ -23,8 +23,7 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
     const val = getVal(col)
     if (typeof val === 'number') return val
     if (typeof val === 'string') {
-      // FIX: Only strip currency/spaces.
-      // Using /[^0-9.]/ was turning "10,000" inside the name into a price!
+      // Strips only currency symbols and spaces to protect numbers in artist names
       const cleanVal = val.replace(/[$,\s]/g, '')
       const parsed = parseFloat(cleanVal)
       return isNaN(parsed) ? null : parsed
@@ -32,10 +31,11 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
     return null
   }
 
-  // Headers: 1:Cat No, 2:Description, 3:Dealer (Price), 4:Format, 5:BarCode, 6:Label, 7:Genre
+  // Column Mapping: 1:Cat No, 2:Description, 3:Dealer (Price), 4:Format, 5:BarCode, 6:Label, 7:Genre
   const rawDescription = getText(2) || ''
   const formatValue = getText(4) || ''
   const labelValue = getText(6) || ''
+  const genreValue = getText(7) || ''
 
   const separator = ' - '
   const dashIndex = rawDescription.indexOf(separator)
@@ -43,21 +43,24 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
   let artist = null
   let title = rawDescription
 
-  // 1. Restore your dash-splitting logic
   if (dashIndex !== -1) {
+    // Standard split for Artist - Title
     artist = rawDescription.substring(0, dashIndex).trim()
     title = rawDescription.substring(dashIndex + separator.length).trim()
   } else {
-    // 2. Fix the "Sleeves/Accessories" issue:
-    // If it's an accessory, use the Label (Brightwell) instead of 'Various'
-    if (formatValue?.toLowerCase().includes('acc')) {
+    // Accessory Fallback: Catches typos like "Acccessorie" by checking for 'acc'
+    const isAccessory =
+      formatValue?.toLowerCase().includes('acc') ||
+      genreValue?.toLowerCase().includes('acc')
+
+    if (isAccessory) {
       artist = labelValue || 'Supplies'
     } else {
       artist = 'Various'
     }
   }
 
-  // 3. Restore your Safe Chop
+  // Safe Chop: Remove format suffix if it matches the format column exactly
   if (formatValue && title.toLowerCase().endsWith(formatValue.toLowerCase())) {
     const potentialTitle = title
       .substring(0, title.length - formatValue.length)
@@ -77,7 +80,7 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
     format: formatValue,
     barcode: getText(5),
     label: labelValue,
-    genres: getText(7),
+    genres: genreValue,
     is_nz_music: false,
     bin_location: null,
     item_code: null,
