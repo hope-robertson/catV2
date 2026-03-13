@@ -110,6 +110,24 @@ export default function ImportData() {
     }
   }
 
+  const handleClearStaging = async () => {
+    if (!window.confirm('Wipe all data in staging?')) return
+    try {
+      const token = await getAccessTokenSilently()
+      const res = await fetch('/api/v1/catalogue/clear-staging', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        setPreviewData([])
+        setStats({ count: null, dist: null })
+        alert('Staging cleared.')
+      }
+    } catch (err) {
+      alert('Clear failed')
+    }
+  }
+
   if (!isAuthenticated)
     return (
       <div className="p-4 text-yellow-700 bg-yellow-50">Please log in.</div>
@@ -183,6 +201,12 @@ export default function ImportData() {
               className="w-full bg-green-600 text-white py-2 rounded-md font-bold hover:bg-green-700"
             >
               {isConsolidating ? 'Merging...' : 'Consolidate to Master'}
+            </button>
+            <button
+              onClick={handleClearStaging}
+              className="w-full border border-red-200 text-red-600 py-2 rounded-md font-semibold hover:bg-red-50 transition-colors"
+            >
+              Clear Staging Area
             </button>
           </section>
         </div>

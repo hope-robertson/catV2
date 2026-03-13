@@ -64,6 +64,23 @@ router.post('/consolidate', async (req: Request, res: Response) => {
   }
 })
 
+router.post('/clear-staging', async (req: Request, res: Response) => {
+  try {
+    const tables = [
+      'flying_nun_records_limited_raw',
+      'border_music_raw',
+      'collective_lp_raw',
+      'collective_cd_raw',
+      'southbound_instock_raw',
+      'rhythmethod_group_combined_raw',
+    ]
+    await Promise.all(tables.map((t) => db.clearRawTable(t)))
+    res.status(200).json({ message: 'Staging cleared' })
+  } catch (error) {
+    res.status(500).json({ message: 'Clear failed' })
+  }
+})
+
 router.get('/preview-staging', async (req: Request, res: Response) => {
   try {
     const rawData = await db.getAllRawData()
