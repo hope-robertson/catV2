@@ -11,10 +11,8 @@ export function mapFlyingNunRow(data: Record<string, string>): CatalogueRow {
   const itemCode = data['Item Code']?.trim() || null
   const price = getPrice(data['Unit Sale Price'])
 
-  // 1. Clean encoding artifacts
   itemName = itemName.replace(/‚Ä¢/g, '•').replace(/Äì/g, '-')
 
-  // 2. Remove redundant Item Code prefix
   if (itemCode && itemName.startsWith(itemCode)) {
     itemName = itemName
       .replace(itemCode, '')
@@ -26,36 +24,25 @@ export function mapFlyingNunRow(data: Record<string, string>): CatalogueRow {
   let title = itemName
   let format = null
 
-  // --- FORMAT DETECTION LOGIC ---
-
-  // A. Check for format in brackets: "Title (CD)"
+  // 1. Extract Format but DO NOT remove it from the title if it contains color info
   const bracketMatch = itemName.match(/(.+?)\s*\(([^)]+)\)\s*$/)
   if (bracketMatch) {
-    title = bracketMatch[1].trim()
     format = bracketMatch[2].trim()
-  }
-  // B. Check for format at the end without brackets: "Title Black LP" or "Title EP"
-  else {
-    const tailMatch = itemName.match(
-      /(.+?)\s+(LP|CD|EP|7"|Cassette|Black LP|Vinyl LP|BLK LP)$/i,
-    )
+    // We only strip the brackets from the title if they are JUST a standard format like (CD)
+    if (['CD', 'LP', 'EP'].includes(format.toUpperCase())) {
+      title = bracketMatch[1].trim()
+    }
+  } else {
+    const tailMatch = itemName.match(/(.+?)\s+(LP|CD|EP|7"|Cassette)$/i)
     if (tailMatch) {
-      title = tailMatch[1].trim()
       format = tailMatch[2].trim()
+      title = tailMatch[1].trim()
     }
   }
 
-  // C. Fallback: If format is still null, look at the Item Code suffix
-  if (!format && itemCode) {
-    const code = itemCode.toUpperCase()
-    if (code.endsWith('LP')) format = 'LP'
-    else if (code.endsWith('CD')) format = 'CD'
-    else if (code.endsWith('EP')) format = 'EP'
-    else if (code.endsWith('CS')) format = 'Cassette'
-  }
-
-  // --- ARTIST / TITLE SEPARATION ---
-  const splitMatch = title.match(/^(.+?)\s*[:\-–—]\s*(.+)$/)
+  // 2. Artist/Title Split - Now looks for "space-dash-space" to protect Vor-stellen
+  // Matches "Artist - Title" or "Artist : Title" but NOT "Vor-stellen"
+  const splitMatch = title.match(/^(.+?)\s+[:\-–—]\s+(.+)$/)
   if (splitMatch) {
     artist = splitMatch[1].trim()
     title = splitMatch[2].trim()
@@ -70,8 +57,8 @@ export function mapFlyingNunRow(data: Record<string, string>): CatalogueRow {
     catalogue_number: itemCode,
     barcode: null,
     artist: artist || 'Unknown Artist',
-    title: title,
-    format: format || 'Vinyl', // Default to Vinyl for FN if unknown
+    title: title, // Color info like "Black LP" stays here if it was in the name
+    format: format || 'Vinyl',
     price: price,
     is_nz_music: true,
     label: 'Flying Nun',
