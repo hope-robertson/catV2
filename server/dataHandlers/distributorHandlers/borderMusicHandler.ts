@@ -1,4 +1,3 @@
-// server/dataHandlers/distributorHandlers/borderMusicHandler.ts
 import exceljs from 'exceljs'
 import { CatalogueRow } from '../../types/catalogue.js'
 
@@ -10,31 +9,24 @@ export function mapBorderMusicRow(row: exceljs.Row): CatalogueRow {
     const val = getVal(col)
     if (val === null || val === undefined) return null
     if (typeof val === 'number') return val
-
-    const strVal = val.toString().trim()
-    // Remove $, commas, and spaces
-    const cleanVal = strVal.replace(/[$,\s]/g, '')
+    const cleanVal = val
+      .toString()
+      .trim()
+      .replace(/[$,\s]/g, '')
     const parsed = parseFloat(cleanVal)
-
     return isNaN(parsed) ? null : parsed
   }
 
   let artist = getText(1)
   let title = getText(2)
   const catNo = getText(3)
-  const formatValue = getText(5) || ''
-  const binValue = getText(7) || ''
   const priceValue = getPrice(6)
 
-  // Debugging: If you aren't seeing prices, check your console for these logs
-  if (catNo && !priceValue) {
-    console.log(
-      `[Border Debug] Row for ${catNo} missing price. Raw cell value:`,
-      row.getCell(6).value,
-    )
-  }
+  if (catNo)
+    console.log(`[Border Handler] Row ${catNo}: PriceParsed=${priceValue}`)
 
   if (artist?.startsWith('/')) {
+    console.log(`[Border Handler] Slash detected in Artist: ${artist}`)
     const rawString = artist.substring(1).trim()
     const upperRaw = rawString.toUpperCase()
     const ofIndex = upperRaw.lastIndexOf(' OF ')
@@ -42,9 +34,11 @@ export function mapBorderMusicRow(row: exceljs.Row): CatalogueRow {
     if (ofIndex !== -1) {
       title = rawString
       artist = rawString.substring(ofIndex + 4).trim()
+      console.log(`[Border Handler] 'OF' Logic: Artist=${artist}`)
     } else {
       title = title ? `${rawString} - ${title}` : rawString
       artist = 'Various'
+      console.log(`[Border Handler] 'Various' Logic assigned`)
     }
   }
 
@@ -55,13 +49,13 @@ export function mapBorderMusicRow(row: exceljs.Row): CatalogueRow {
     title: title || 'UNTITLED',
     catalogue_number: catNo,
     barcode: getText(4),
-    format: formatValue,
+    format: getText(5) || '',
     price: priceValue,
-    is_nz_music: !!(binValue && binValue.toUpperCase().includes('NZ')),
+    is_nz_music: !!getText(7)?.toUpperCase().includes('NZ'),
     label: 'Various',
     released: null,
     genres: null,
     item_code: null,
-    unit_sale_price_excl_gst: priceValue, // Map price to here as well
+    unit_sale_price_excl_gst: priceValue,
   }
 }

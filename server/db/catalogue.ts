@@ -102,3 +102,12 @@ export async function updateRecordRating(
 ): Promise<number> {
   return knex('master_catalogue').where('id', id).update({ rating })
 }
+
+export async function clearRawTable(tableName: string): Promise<void> {
+  try {
+    await knex(tableName).del()
+  } catch (error) {
+    console.error(`Error clearing table ${tableName}:`, error)
+    throw error
+  }
+}

@@ -27,22 +27,32 @@ router.post('/import', async (req: Request, res: Response) => {
       return res.status(404).json({ message: 'File not found' })
 
     const config = getDistributorConfig(distVal)
-    const handler = getDistributorDataHandler(config!)
+    if (!config) throw new Error('Config not found')
 
-    // The handler should ideally return both the data and the raw row count
+    // CRITICAL: Clear the staging table before adding new rows
+    console.log(`[Import] Clearing staging table: ${config.rawTableName}`)
+    await db.clearRawTable(config.rawTableName)
+
+    const handler = getDistributorDataHandler(config)
     const dataToInsert = await handler(filePath, formatType)
 
+    console.log(
+      `[Import] Inserting ${dataToInsert.length} rows into ${config.rawTableName}`,
+    )
     const insertedCount = await db.importCatalogueData(
-      config!.rawTableName,
+      config.rawTableName,
       dataToInsert,
     )
 
-    res.status(200).json({
-      message: 'Import successful',
-      stagedCount: insertedCount,
-      distributor: config!.name,
-    })
-  } catch (error) {
+    res
+      .status(200)
+      .json({
+        message: 'Import successful',
+        stagedCount: insertedCount,
+        distributor: config.name,
+      })
+  } catch (error: any) {
+    console.error('[Import Error]', error.message)
     res.status(500).json({ message: 'Import failed' })
   }
 })
@@ -58,6 +68,7 @@ router.post('/consolidate', async (req: Request, res: Response) => {
       title: scrubber.text(row.title),
       barcode: scrubber.barcode(row.barcode),
       format: scrubber.text(row.format),
+      price: row.price, // Ensure price carries over to master
       source_distributor: row.distributor,
       rating: 0,
       last_imported_at: new Date(),
@@ -80,6 +91,7 @@ router.get('/preview-staging', async (req: Request, res: Response) => {
         title: scrubber.text(row.title),
         barcode: scrubber.barcode(row.barcode),
         format: scrubber.text(row.format),
+        price: row.price, // Added price to preview object
       },
     }))
     res.status(200).json(preview)
