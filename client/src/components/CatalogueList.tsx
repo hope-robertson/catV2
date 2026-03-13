@@ -35,7 +35,7 @@ export default function CatalogueList() {
                 Artist
               </th>
               <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                Title / Cat No
+                Title
               </th>
               <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
                 Distributor
@@ -43,7 +43,10 @@ export default function CatalogueList() {
               <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
                 Format
               </th>
-              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
+                Cat No
+              </th>
+              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
                 Price
               </th>
             </tr>
@@ -57,13 +60,8 @@ export default function CatalogueList() {
                 <td className="px-6 py-4 text-sm font-bold text-gray-900">
                   {item.artist || 'VARIOUS'}
                 </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm text-gray-600 font-medium">
-                    {item.title}
-                  </div>
-                  <div className="text-[10px] text-gray-400 font-mono mt-0.5">
-                    {item.catalogue_number}
-                  </div>
+                <td className="px-6 py-4 text-sm text-gray-600 font-medium">
+                  {item.title}
                 </td>
                 <td className="px-6 py-4 text-center">
                   <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter">
@@ -75,7 +73,10 @@ export default function CatalogueList() {
                     {item.format}
                   </span>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-6 py-4 text-center text-[11px] font-mono text-gray-500">
+                  {item.catalogue_number || '—'}
+                </td>
+                <td className="px-6 py-4 text-right">
                   <span className="text-sm font-black text-green-700">
                     ${item.price?.toFixed(2) || '0.00'}
                   </span>
@@ -85,7 +86,6 @@ export default function CatalogueList() {
           </tbody>
         </table>
 
-        {/* Clean, no-icon empty state */}
         {!loading && results.length === 0 && (
           <div className="text-center py-20 bg-gray-50 border-t border-gray-100">
             <p className="text-gray-500 font-medium">

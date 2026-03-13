@@ -8,12 +8,14 @@ export async function searchCatalogue(
   filter: string,
   token: string,
 ): Promise<MasterCatalogueRow[]> {
-  // We use .set() to attach the Auth0 token to the superagent request
+  console.log(`[API] Searching for: "${query}" with filter: "${filter}"`)
+
   const res = await request
     .get(`${rootUrl}/search`)
     .set('Authorization', `Bearer ${token}`)
-    .query({ q: query, filter }) // Updated 'query' to 'q' to match our backend route
+    .query({ q: query, filter }) // We are sending it as 'q'
 
+  console.log(`[API] received ${res.body.length} results`)
   return res.body
 }
 
@@ -23,17 +25,5 @@ export async function getFullMasterList(
   const res = await request
     .get(`${rootUrl}/master`)
     .set('Authorization', `Bearer ${token}`)
-
   return res.body
-}
-
-export async function updateRating(
-  id: number,
-  rating: number,
-  token: string,
-): Promise<void> {
-  await request
-    .patch(`${rootUrl}/rating`)
-    .set('Authorization', `Bearer ${token}`)
-    .send({ id, rating })
 }
