@@ -6,22 +6,14 @@ export async function importCatalogueData(
   data: CatalogueRow[],
 ): Promise<number> {
   try {
-    console.log(`[DB] Starting import for ${tableName}. Clearing old rows...`)
+    console.log(`[DB] Clearing ${tableName}...`)
     await knex(tableName).del()
-
     if (data.length > 0) {
-      const BATCH_SIZE = 500
-      console.log(
-        `[DB] Batch inserting ${data.length} rows into ${tableName}...`,
-      )
-      await knex.batchInsert(tableName, data, BATCH_SIZE)
-
-      // Quick verification count
+      await knex.batchInsert(tableName, data, 500)
       const countCheck = await knex(tableName).count('id as cnt').first()
       console.log(
         `[DB] Success: ${tableName} now contains ${countCheck?.cnt} rows.`,
       )
-
       return data.length
     }
     return 0
@@ -33,9 +25,8 @@ export async function importCatalogueData(
 
 export async function consolidateRawDataToMaster(): Promise<number> {
   try {
-    console.log('[DB] Starting Consolidation. Clearing Master Catalogue...')
+    console.log('[DB] Starting Consolidation. Clearing Master...')
     await knex('master_catalogue').del()
-
     const rawTableNames = [
       'flying_nun_records_limited_raw',
       'border_music_raw',
@@ -44,24 +35,32 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       'southbound_instock_raw',
       'rhythmethod_group_combined_raw',
     ]
-
-    const uniqueItems = new Map<string, MasterCatalogueRow>()
+    const uniqueItems = new Map<string, any>()
 
     for (const tableName of rawTableNames) {
       const rawData = await knex(tableName).select('*')
       console.log(
         `[DB] Consolidating ${rawData.length} rows from ${tableName}...`,
       )
-
       for (const item of rawData) {
-        const masterItem: MasterCatalogueRow = {
-          ...item,
+        // Manually mapping to avoid "distributor" column error in master table
+        const masterItem = {
+          artist: item.artist,
+          title: item.title,
+          barcode: item.barcode,
+          catalogue_number: item.catalogue_number,
+          format: item.format,
+          price: item.price,
+          is_nz_music: item.is_nz_music,
+          bin_location: item.bin_location,
+          label: item.label,
           source_distributor: item.distributor,
           last_imported_at: new Date(),
           rating: 0,
         }
         const key =
-          masterItem.barcode || `${item.artist}-${item.title}-${item.format}`
+          masterItem.barcode ||
+          `${masterItem.artist}-${masterItem.title}-${masterItem.format}`
         if (key && !uniqueItems.has(key)) uniqueItems.set(key, masterItem)
       }
     }
@@ -73,10 +72,8 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       )
       await knex.batchInsert('master_catalogue', itemsToInsert, 500)
     }
-
     const finalCount = await knex('master_catalogue').count('id as cnt').first()
     console.log(`[DB] Consolidation complete. Master total: ${finalCount?.cnt}`)
-
     return itemsToInsert.length
   } catch (error) {
     console.error('[DB Error] Consolidation error:', error)

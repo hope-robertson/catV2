@@ -20,20 +20,15 @@ router.post('/import', async (req: Request, res: Response) => {
       return res
         .status(400)
         .json({ message: 'Missing filename or distributor' })
-
     const filePath = path.resolve('uploads', filename)
     if (!fs.existsSync(filePath))
       return res.status(404).json({ message: 'File not found' })
-
     const config = getDistributorConfig(distVal)
     if (!config) throw new Error('Config not found')
-
     console.log(`[Import] Clearing staging table: ${config.rawTableName}`)
     await db.clearRawTable(config.rawTableName)
-
     const handler = getDistributorDataHandler(config)
     const dataToInsert = await handler(filePath, formatType)
-
     console.log(
       `[Import] Inserting ${dataToInsert.length} rows into ${config.rawTableName}`,
     )
@@ -41,7 +36,6 @@ router.post('/import', async (req: Request, res: Response) => {
       config.rawTableName,
       dataToInsert,
     )
-
     res
       .status(200)
       .json({
@@ -57,22 +51,13 @@ router.post('/import', async (req: Request, res: Response) => {
 
 router.post('/consolidate', async (req: Request, res: Response) => {
   try {
-    const rawData = await db.getAllRawData()
-    if (!rawData.length)
+    console.log('[Route] Consolidation triggered...')
+    const count = await db.consolidateRawDataToMaster()
+    if (count === 0)
       return res.status(400).json({ message: 'Staging is empty' })
-    const cleanData = rawData.map((row) => ({
-      artist: scrubber.artist(row.artist),
-      title: scrubber.text(row.title),
-      barcode: scrubber.barcode(row.barcode),
-      format: scrubber.text(row.format),
-      price: row.price,
-      source_distributor: row.distributor,
-      rating: 0,
-      last_imported_at: new Date(),
-    }))
-    const count = await db.insertToMaster(cleanData)
     res.status(200).json({ message: 'Consolidation complete', count })
   } catch (error) {
+    console.error('[Route Error] Consolidation failed')
     res.status(500).json({ message: 'Consolidation failed' })
   }
 })
@@ -80,7 +65,6 @@ router.post('/consolidate', async (req: Request, res: Response) => {
 router.get('/preview-staging', async (req: Request, res: Response) => {
   try {
     const rawData = await db.getAllRawData()
-    // Expanded to 200 rows and removed scrubber from artist/title to see raw handler output
     const preview = rawData.slice(0, 200).map((row) => ({
       original: { artist: row.artist, title: row.title },
       scrubbed: {
