@@ -2,13 +2,14 @@
 
 export interface MasterCatalogueRow {
   id: number
-  artist: string
+  artist: string | null
   title: string
   label: string | null
   format: string | null
   barcode: string | null
+  catalogue_number: string | null
   price: number | null
-  rating: number // 0, 1, 2, or 3
+  source_distributor: string
   is_nz_music: boolean | null
-  // ... add any other fields you want to display
+  // rating: number                // Commented out since we removed it from the UI
 }

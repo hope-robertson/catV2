@@ -1,9 +1,9 @@
-// client/src/App.tsx
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
-import { useAuth0 } from '@auth0/auth0-react' // 👈 Add this
+import { useAuth0 } from '@auth0/auth0-react'
 import ImportData from './components/ImportData.js'
 import CatalogueList from './components/CatalogueList.js'
+import CatalogueSearch from './components/CatalogueSearch.js'
 import './App.css'
 
 function App() {
@@ -12,20 +12,26 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-gray-100 p-4">
+      <div className="min-h-screen bg-gray-100 p-4 font-sans text-gray-900">
         <nav className="bg-white shadow-md rounded-lg p-4 mb-6 flex justify-between items-center max-w-5xl mx-auto">
           <div className="flex space-x-6 items-center">
             <Link
               to="/"
               className="text-blue-600 hover:text-blue-800 font-semibold text-lg"
             >
-              Import Data
+              Import
+            </Link>
+            <Link
+              to="/search"
+              className="text-blue-600 hover:text-blue-800 font-semibold text-lg"
+            >
+              Search
             </Link>
             <Link
               to="/catalogue"
               className="text-blue-600 hover:text-blue-800 font-semibold text-lg"
             >
-              View Catalogue
+              Full List
             </Link>
           </div>
 
@@ -62,6 +68,7 @@ function App() {
         <main className="max-w-5xl mx-auto">
           <Routes>
             <Route path="/" element={<ImportData />} />
+            <Route path="/search" element={<CatalogueSearch />} />
             <Route path="/catalogue" element={<CatalogueList />} />
           </Routes>
         </main>

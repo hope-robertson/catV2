@@ -1,98 +1,86 @@
-import React from 'react'
-import SearchBar from './SearchBar.js'
-import { useCatalogue } from '../hooks/useCatalogue.js'
+import React, { useState, useEffect } from 'react'
 
-export default function CatalogueList() {
-  const { results, loading, performSearch, handleRatingUpdate } = useCatalogue()
+const CatalogueList = () => {
+  const [items, setItems] = useState([])
+  const [sort, setSort] = useState({ col: 'artist', dir: 'asc' })
 
-  // This object maps the rating number to a specific Tailwind CSS color scheme
-  const ratingStyles: Record<number, string> = {
-    0: 'bg-gray-100 text-gray-600 border-gray-200',
-    1: 'bg-red-50 text-red-700 border-red-200', // Risky Pick
-    2: 'bg-blue-50 text-blue-700 border-blue-200', // Under Review
-    3: 'bg-yellow-50 text-yellow-800 border-yellow-400 font-bold', // Classic Banger
+  useEffect(() => {
+    fetch(`/api/v1/catalogue/master?sortCol=${sort.col}&sortDir=${sort.dir}`)
+      .then((res) => res.json())
+      .then(setItems)
+  }, [sort])
+
+  const toggleSort = (col) => {
+    setSort({
+      col,
+      dir: sort.col === col && sort.dir === 'asc' ? 'desc' : 'asc',
+    })
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Catalogue Search</h2>
-        <span className="text-sm text-gray-500">
-          {results.length} results found
-        </span>
+    <div className="bg-white shadow-md rounded-lg p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">
+          Master Catalogue ({items.length})
+        </h2>
+        <div className="space-x-2">
+          <button
+            onClick={() => toggleSort('artist')}
+            className="bg-gray-200 px-3 py-1 rounded text-sm"
+          >
+            Sort Artist
+          </button>
+          <button
+            onClick={() => toggleSort('price')}
+            className="bg-gray-200 px-3 py-1 rounded text-sm"
+          >
+            Sort Price
+          </button>
+        </div>
       </div>
 
-      {/* Search Input and Filter */}
-      <SearchBar onSearch={performSearch} />
-
-      {/* Loading Spinner */}
-      {loading && (
-        <div className="flex justify-center py-10">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="ml-3 text-blue-600 font-medium">
-            Searching database...
-          </p>
-        </div>
-      )}
-
-      {/* Results Table/List */}
-      <div className="grid gap-4">
-        {results.map((item) => (
-          <div
-            key={item.id}
-            className="flex flex-col md:flex-row justify-between items-start md:items-center p-4 bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow"
-          >
-            <div className="flex-grow">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {item.title}
-              </h3>
-              <p className="text-gray-600">{item.artist}</p>
-
-              <div className="flex flex-wrap gap-2 mt-2">
-                <span className="text-xs font-mono bg-gray-100 px-2 py-1 rounded text-gray-500">
-                  {item.barcode || 'NO BARCODE'}
-                </span>
-                <span className="text-xs font-semibold bg-blue-100 text-blue-800 px-2 py-1 rounded">
+      <div className="overflow-x-auto max-h-[600px]">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50 sticky top-0">
+            <tr>
+              <th className="px-4 py-2 text-left text-xs font-bold uppercase text-gray-500">
+                Artist
+              </th>
+              <th className="px-4 py-2 text-left text-xs font-bold uppercase text-gray-500">
+                Title
+              </th>
+              <th className="px-4 py-2 text-left text-xs font-bold uppercase text-gray-500">
+                Format
+              </th>
+              <th className="px-4 py-2 text-left text-xs font-bold uppercase text-gray-500">
+                Price
+              </th>
+              <th className="px-4 py-2 text-left text-xs font-bold uppercase text-gray-500">
+                Distributor
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200">
+            {items.map((item, i) => (
+              <tr key={i} className="hover:bg-gray-50">
+                <td className="px-4 py-2 text-sm font-medium">{item.artist}</td>
+                <td className="px-4 py-2 text-sm">{item.title}</td>
+                <td className="px-4 py-2 text-sm text-gray-500">
                   {item.format}
-                </span>
-                {item.is_nz_music && (
-                  <span className="text-xs font-semibold bg-green-100 text-green-800 px-2 py-1 rounded">
-                    🇳🇿 NZ Music
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Rating Dropdown */}
-            <div className="mt-4 md:mt-0 flex flex-col items-end gap-1">
-              <label className="text-[10px] uppercase tracking-wider text-gray-400 font-bold">
-                Vibe Status
-              </label>
-              <select
-                value={item.rating}
-                onChange={(e) =>
-                  handleRatingUpdate(item.id, Number(e.target.value))
-                }
-                className={`text-sm border rounded-md px-3 py-1.5 cursor-pointer outline-none transition-all ${ratingStyles[item.rating]}`}
-              >
-                <option value={0}>Unrated</option>
-                <option value={1}> Risky Pick</option>
-                <option value={2}> Under Review</option>
-                <option value={3}> Classic Banger</option>
-              </select>
-            </div>
-          </div>
-        ))}
-
-        {!loading && results.length === 0 && (
-          <div className="text-center py-20 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-            <p className="text-gray-500">
-              No records found. Try searching for an artist or scanning a
-              barcode.
-            </p>
-          </div>
-        )}
+                </td>
+                <td className="px-4 py-2 text-sm font-bold text-green-600">
+                  ${item.price?.toFixed(2)}
+                </td>
+                <td className="px-4 py-2 text-xs text-gray-400">
+                  {item.source_distributor}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
 }
+
+export default CatalogueList
