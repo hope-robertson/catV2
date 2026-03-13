@@ -1,15 +1,40 @@
-import { useState } from 'react'
-import { searchCatalogue, updateRating } from '../apis/catalogue.js'
+import { useState, useEffect } from 'react'
+import { useAuth0 } from '@auth0/auth0-react'
+import {
+  searchCatalogue,
+  getFullMasterList,
+  updateRating,
+} from '../apis/catalogue.js'
 import { MasterCatalogueRow } from '../models/catalogue.js'
 
 export function useCatalogue() {
+  const { getAccessTokenSilently, isAuthenticated } = useAuth0()
   const [results, setResults] = useState<MasterCatalogueRow[]>([])
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      const loadInitialData = async () => {
+        setLoading(true)
+        try {
+          const token = await getAccessTokenSilently()
+          const data = await getFullMasterList(token)
+          setResults(data)
+        } catch (err) {
+          console.error('Failed to load initial catalogue:', err)
+        } finally {
+          setLoading(false)
+        }
+      }
+      loadInitialData()
+    }
+  }, [isAuthenticated, getAccessTokenSilently])
 
   const performSearch = async (query: string, filter: string) => {
     setLoading(true)
     try {
-      const data = await searchCatalogue(query, filter)
+      const token = await getAccessTokenSilently()
+      const data = await searchCatalogue(query, filter, token)
       setResults(data)
     } catch (err) {
       console.error('Search failed:', err)
@@ -20,8 +45,8 @@ export function useCatalogue() {
 
   const handleRatingUpdate = async (id: number, rating: number) => {
     try {
-      await updateRating(id, rating)
-      // Optimistic UI update: change the state immediately so it feels snappy
+      const token = await getAccessTokenSilently()
+      await updateRating(id, rating, token)
       setResults((prev) =>
         prev.map((item) => (item.id === id ? { ...item, rating } : item)),
       )
