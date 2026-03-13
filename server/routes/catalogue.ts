@@ -16,7 +16,6 @@ router.post('/import', async (req: Request, res: Response) => {
   try {
     const { filename, distributor: distVal } = req.body
     const formatType = (req.query.formatType || 'All') as 'LP' | 'CD' | 'All'
-
     if (!filename || !distVal)
       return res
         .status(400)
@@ -29,7 +28,6 @@ router.post('/import', async (req: Request, res: Response) => {
     const config = getDistributorConfig(distVal)
     if (!config) throw new Error('Config not found')
 
-    // CRITICAL: Clear the staging table before adding new rows
     console.log(`[Import] Clearing staging table: ${config.rawTableName}`)
     await db.clearRawTable(config.rawTableName)
 
@@ -62,18 +60,16 @@ router.post('/consolidate', async (req: Request, res: Response) => {
     const rawData = await db.getAllRawData()
     if (!rawData.length)
       return res.status(400).json({ message: 'Staging is empty' })
-
     const cleanData = rawData.map((row) => ({
       artist: scrubber.artist(row.artist),
       title: scrubber.text(row.title),
       barcode: scrubber.barcode(row.barcode),
       format: scrubber.text(row.format),
-      price: row.price, // Ensure price carries over to master
+      price: row.price,
       source_distributor: row.distributor,
       rating: 0,
       last_imported_at: new Date(),
     }))
-
     const count = await db.insertToMaster(cleanData)
     res.status(200).json({ message: 'Consolidation complete', count })
   } catch (error) {
@@ -84,14 +80,15 @@ router.post('/consolidate', async (req: Request, res: Response) => {
 router.get('/preview-staging', async (req: Request, res: Response) => {
   try {
     const rawData = await db.getAllRawData()
-    const preview = rawData.slice(0, 50).map((row) => ({
+    // Expanded to 200 rows and removed scrubber from artist/title to see raw handler output
+    const preview = rawData.slice(0, 200).map((row) => ({
       original: { artist: row.artist, title: row.title },
       scrubbed: {
-        artist: scrubber.artist(row.artist),
-        title: scrubber.text(row.title),
+        artist: row.artist,
+        title: row.title,
         barcode: scrubber.barcode(row.barcode),
         format: scrubber.text(row.format),
-        price: row.price, // Added price to preview object
+        price: row.price,
       },
     }))
     res.status(200).json(preview)

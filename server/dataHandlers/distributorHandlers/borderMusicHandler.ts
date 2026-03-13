@@ -22,23 +22,16 @@ export function mapBorderMusicRow(row: exceljs.Row): CatalogueRow {
   const catNo = getText(3)
   const priceValue = getPrice(6)
 
-  if (catNo)
-    console.log(`[Border Handler] Row ${catNo}: PriceParsed=${priceValue}`)
-
   if (artist?.startsWith('/')) {
-    console.log(`[Border Handler] Slash detected in Artist: ${artist}`)
     const rawString = artist.substring(1).trim()
-    const upperRaw = rawString.toUpperCase()
-    const ofIndex = upperRaw.lastIndexOf(' OF ')
+    const ofMatch = rawString.match(/\s+OF\s+/i) // Flexible case-insensitive match
 
-    if (ofIndex !== -1) {
+    if (ofMatch && ofMatch.index !== undefined) {
       title = rawString
-      artist = rawString.substring(ofIndex + 4).trim()
-      console.log(`[Border Handler] 'OF' Logic: Artist=${artist}`)
+      artist = rawString.substring(ofMatch.index + ofMatch[0].length).trim()
     } else {
       title = title ? `${rawString} - ${title}` : rawString
       artist = 'Various'
-      console.log(`[Border Handler] 'Various' Logic assigned`)
     }
   }
 
