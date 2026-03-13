@@ -42,6 +42,9 @@ export default function ImportData() {
   useEffect(() => {
     if (isAuthenticated) fetchMasterStats()
   }, [isAuthenticated])
+  useEffect(() => {
+    setPreviewData([])
+  }, [distributor])
 
   const handleUpload = async () => {
     if (!isAuthenticated || !file) return alert('Selection required')
@@ -117,7 +120,7 @@ export default function ImportData() {
       <div className="flex justify-between items-center bg-gray-900 text-white p-5 rounded-xl shadow-lg">
         <h1 className="text-xl font-bold tracking-tight">Catalogue Staging</h1>
         <div className="flex items-center gap-3">
-          <span className="text-gray-400 text-xs uppercase font-bold">
+          <span className="text-gray-400 text-xs uppercase font-bold tracking-widest">
             Total Master Items
           </span>
           <span className="bg-green-600 px-4 py-1 rounded-full text-lg font-mono font-bold">
@@ -153,6 +156,20 @@ export default function ImportData() {
                 </option>
               ))}
             </select>
+
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded text-xs text-blue-800 space-y-1">
+              <p className="font-bold">{distributor} Logic:</p>
+              {distributor === 'Border Music' && (
+                <p>
+                  Leading "/" or "Presents" → Various. Empty Title fallback
+                  enabled.
+                </p>
+              )}
+              {distributor === 'Flying Nun Records Limited' && (
+                <p>Item Name cleaning + Bracket extraction.</p>
+              )}
+            </div>
+
             <input
               type="file"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
@@ -185,27 +202,49 @@ export default function ImportData() {
         </div>
 
         {previewData.length > 0 && (
-          <div className="mt-8 overflow-x-auto border rounded-lg">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 font-bold">
-                <tr>
-                  <th className="p-3 border-b">Artist</th>
-                  <th className="p-3 border-b">Title</th>
-                  <th className="p-3 border-b text-right">Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {previewData.map((row, idx) => (
-                  <tr key={idx} className="hover:bg-blue-50/50">
-                    <td className="p-3 font-semibold">{row.scrubbed.artist}</td>
-                    <td className="p-3">{row.scrubbed.title}</td>
-                    <td className="p-3 text-right font-mono text-green-700">
-                      ${(row.scrubbed.price || 0).toFixed(2)}
-                    </td>
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold mb-4 text-orange-600 flex items-center gap-2">
+              Scrubber Preview{' '}
+              <span className="text-xs font-normal text-gray-400 uppercase tracking-widest">
+                (Verify Logic)
+              </span>
+            </h3>
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="w-full text-left text-sm border-collapse">
+                <thead className="bg-gray-50 text-gray-600 font-bold">
+                  <tr>
+                    <th className="p-3 border-b">Source String</th>
+                    <th className="p-3 border-b text-blue-600">
+                      Scrubbed Artist
+                    </th>
+                    <th className="p-3 border-b text-blue-600">
+                      Scrubbed Title
+                    </th>
+                    <th className="p-3 border-b text-right">Price</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {previewData.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-blue-50/50">
+                      <td className="p-3 text-gray-400 italic text-xs max-w-[200px] truncate">
+                        {row.original.artist || ''} {row.original.title || ''}
+                      </td>
+                      <td className="p-3 font-semibold text-gray-900 border-l border-blue-100 bg-blue-50/20">
+                        {row.scrubbed.artist || (
+                          <span className="text-red-300 italic">None</span>
+                        )}
+                      </td>
+                      <td className="p-3 text-gray-800">
+                        {row.scrubbed.title}
+                      </td>
+                      <td className="p-3 text-right font-mono text-green-700">
+                        ${(row.scrubbed.price || 0).toFixed(2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
