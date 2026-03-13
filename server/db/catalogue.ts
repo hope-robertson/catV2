@@ -24,7 +24,6 @@ export async function importCatalogueData(
 
 export async function consolidateRawDataToMaster(): Promise<number> {
   try {
-    // 1. We no longer clear the Master table at the start to ensure persistence
     console.log('[DB] Starting Consolidation. Appending to Master...')
 
     const rawTableNames = [
@@ -36,7 +35,6 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       'rhythmethod_group_combined_raw',
     ]
 
-    // Use a Map to prevent exact duplicates (same item from same distro)
     const uniqueItems = new Map<string, any>()
 
     for (const tableName of rawTableNames) {
@@ -65,8 +63,9 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           rating: 0,
         }
 
-        // 2. Composite Key: Preserves the row if the distributor is different
-        const key = `${masterItem.source_distributor}-${masterItem.barcode || masterItem.catalogue_number}-${masterItem.format}`
+        // 1. UPDATED KEY: Includes Title and Format.
+        // This ensures "Album (Red Vinyl)" and "Album (Black Vinyl)" are treated as distinct.
+        const key = `${masterItem.source_distributor}-${masterItem.catalogue_number}-${masterItem.title}-${masterItem.format}`
 
         if (key && !uniqueItems.has(key)) {
           uniqueItems.set(key, masterItem)
@@ -77,7 +76,6 @@ export async function consolidateRawDataToMaster(): Promise<number> {
     const itemsToInsert = Array.from(uniqueItems.values())
 
     if (itemsToInsert.length > 0) {
-      // 🚀 THE FIX: Batch processing to avoid "Too many SQL variables"
       const chunkSize = 100
       console.log(
         `[DB] Syncing ${itemsToInsert.length} items to Master in batches of ${chunkSize}...`,
@@ -88,10 +86,16 @@ export async function consolidateRawDataToMaster(): Promise<number> {
 
         await knex('master_catalogue')
           .insert(chunk)
-          .onConflict(['catalogue_number', 'source_distributor'])
+          // 2. UPDATED CONFLICT: Matches the more granular unique key.
+          // Note: Ensure your migration 'table.unique' matches these columns!
+          .onConflict([
+            'catalogue_number',
+            'source_distributor',
+            'title',
+            'format',
+          ])
           .merge()
 
-        // Optional: log progress for the huge Southbound file
         if (i % 1000 === 0 && i > 0) {
           console.log(`[DB] ...processed ${i} items`)
         }
