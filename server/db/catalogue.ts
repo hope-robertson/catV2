@@ -43,7 +43,6 @@ export async function consolidateRawDataToMaster(): Promise<number> {
         `[DB] Consolidating ${rawData.length} rows from ${tableName}...`,
       )
       for (const item of rawData) {
-        // Manually mapping to avoid "distributor" column error in master table
         const masterItem = {
           artist: item.artist,
           title: item.title,
@@ -51,7 +50,8 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           catalogue_number: item.catalogue_number,
           format: item.format,
           price: item.price,
-          is_nz_music: item.is_nz_music,
+          is_nz_music: !!item.is_nz_music, // Now the column exists!
+          genres: item.genres, // Now the column exists!
           bin_location: item.bin_location,
           label: item.label,
           source_distributor: item.distributor,
