@@ -12,6 +12,15 @@ import { checkJwt } from '../auth0/auth.js'
 const router = Router()
 router.use(checkJwt)
 
+const STAGING_TABLES = [
+  'flying_nun_records_limited_raw',
+  'border_music_raw',
+  'collective_lp_raw',
+  'collective_cd_raw',
+  'southbound_instock_raw',
+  'rhythmethod_group_combined_raw',
+]
+
 router.get('/master-stats', async (req: Request, res: Response) => {
   try {
     const total = await db.getMasterCount()
@@ -32,7 +41,6 @@ router.post('/import', async (req: Request, res: Response) => {
         .status(400)
         .json({ message: 'Missing filename or distributor' })
 
-    // 🛡️ Filename mismatch guard
     const lowerFile = filename.toLowerCase()
     const lowerDistKeyword = distVal.toLowerCase().split(' ')[0]
 
@@ -75,11 +83,14 @@ router.post('/consolidate', async (req: Request, res: Response) => {
     const count = await db.consolidateRawDataToMaster()
 
     if (count === 0)
-      return res
-        .status(400)
-        .json({ message: 'Staging is empty or no new items to consolidate' })
+      return res.status(400).json({ message: 'Staging is empty' })
 
-    res.status(200).json({ message: 'Consolidation complete', count })
+    // Auto-clear all staging tables after successful merge
+    await Promise.all(STAGING_TABLES.map((t) => db.clearRawTable(t)))
+
+    res
+      .status(200)
+      .json({ message: 'Consolidation complete and staging cleared', count })
   } catch (error: any) {
     console.error('Consolidation error:', error)
     res.status(500).json({ message: 'Consolidation failed' })
@@ -88,15 +99,7 @@ router.post('/consolidate', async (req: Request, res: Response) => {
 
 router.post('/clear-staging', async (req: Request, res: Response) => {
   try {
-    const tables = [
-      'flying_nun_records_limited_raw',
-      'border_music_raw',
-      'collective_lp_raw',
-      'collective_cd_raw',
-      'southbound_instock_raw',
-      'rhythmethod_group_combined_raw',
-    ]
-    await Promise.all(tables.map((t) => db.clearRawTable(t)))
+    await Promise.all(STAGING_TABLES.map((t) => db.clearRawTable(t)))
     res.status(200).json({ message: 'Staging cleared' })
   } catch (error) {
     console.error('Staging clear error:', error)
