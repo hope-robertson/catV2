@@ -31,7 +31,7 @@ export default function CatalogueList() {
         <table className="min-w-full divide-y divide-gray-200 text-left">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-4 text-[10px] font-black text-gray-500 uppercase tracking-widest">
+              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                 Artist
               </th>
               <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
@@ -85,10 +85,14 @@ export default function CatalogueList() {
           </tbody>
         </table>
 
+        {/* Clean, no-icon empty state */}
         {!loading && results.length === 0 && (
           <div className="text-center py-20 bg-gray-50 border-t border-gray-100">
             <p className="text-gray-500 font-medium">
-              No records found. Try a different search term.
+              No records found matching that search.
+            </p>
+            <p className="text-gray-400 text-xs mt-1">
+              Try a different keyword or check your filters.
             </p>
           </div>
         )}
