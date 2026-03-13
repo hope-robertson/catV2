@@ -24,7 +24,9 @@ export async function importCatalogueData(
 
 export async function consolidateRawDataToMaster(): Promise<number> {
   try {
+    console.log('[DB] Starting Consolidation. Clearing Master...')
     await knex('master_catalogue').del()
+
     const rawTableNames = [
       'flying_nun_records_limited_raw',
       'border_music_raw',
@@ -34,8 +36,14 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       'rhythmethod_group_combined_raw',
     ]
     const uniqueItems = new Map<string, any>()
+
     for (const tableName of rawTableNames) {
+      const exists = await knex.schema.hasTable(tableName)
+      if (!exists) continue
+
       const rawData = await knex(tableName).select('*')
+      console.log(`[DB] Found ${rawData.length} rows in ${tableName}`)
+
       for (const item of rawData) {
         const masterItem = {
           artist: item.artist,
@@ -52,17 +60,33 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           last_imported_at: new Date(),
           rating: 0,
         }
+
+        // Key logic: barcode first, then string combo
         const key =
           masterItem.barcode ||
           `${masterItem.artist}-${masterItem.title}-${masterItem.format}`
-        if (key && !uniqueItems.has(key)) uniqueItems.set(key, masterItem)
+
+        // Only add if we haven't seen this key yet
+        if (key && !uniqueItems.has(key)) {
+          uniqueItems.set(key, masterItem)
+        }
       }
     }
+
     const itemsToInsert = Array.from(uniqueItems.values())
-    if (itemsToInsert.length > 0)
+    if (itemsToInsert.length > 0) {
+      console.log(
+        `[DB] Inserting ${itemsToInsert.length} unique items into Master...`,
+      )
       await knex.batchInsert('master_catalogue', itemsToInsert, 500)
+    }
+
+    const finalCount = await getMasterCount()
+    console.log(`[DB] Consolidation Finished. Master total: ${finalCount}`)
+
     return itemsToInsert.length
   } catch (error) {
+    console.error('[DB Error] Consolidation failed:', error)
     throw error
   }
 }
