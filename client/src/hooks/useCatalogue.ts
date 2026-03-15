@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
-import {
-  searchCatalogue,
-  getFullMasterList,
-  updateRating,
-} from '../apis/catalogue.js'
+import { searchCatalogue, getFullMasterList } from '../apis/catalogue.js'
 import { MasterCatalogueRow } from '../models/catalogue.js'
 
 export function useCatalogue() {
@@ -43,17 +39,5 @@ export function useCatalogue() {
     }
   }
 
-  const handleRatingUpdate = async (id: number, rating: number) => {
-    try {
-      const token = await getAccessTokenSilently()
-      await updateRating(id, rating, token)
-      setResults((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, rating } : item)),
-      )
-    } catch (err) {
-      console.error('Failed to update rating:', err)
-    }
-  }
-
-  return { results, loading, performSearch, handleRatingUpdate }
+  return { results, loading, performSearch }
 }
