@@ -24,7 +24,7 @@ export async function importCatalogueData(
 
 export async function consolidateRawDataToMaster(): Promise<number> {
   try {
-    console.log('[DB] Starting Consolidation...')
+    console.log('[DB] Starting Consolidation with Collision Tracking...')
     const rawTableNames = [
       'flying_nun_records_limited_raw',
       'border_music_raw',
@@ -35,8 +35,8 @@ export async function consolidateRawDataToMaster(): Promise<number> {
     ]
 
     const uniqueItems = new Map<string, any>()
+    const collisions: any[] = []
     let totalScanned = 0
-    let collisionCount = 0
 
     for (const tableName of rawTableNames) {
       const exists = await knex.schema.hasTable(tableName)
@@ -64,40 +64,55 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           last_imported_at: new Date(),
         }
 
-        // We use a lowercase key to avoid duplicates caused by CASE mismatches
         const key =
           `${masterItem.source_distributor}-${masterItem.catalogue_number}-${masterItem.title}-${masterItem.format}`.toLowerCase()
 
         if (!uniqueItems.has(key)) {
           uniqueItems.set(key, masterItem)
         } else {
-          collisionCount++
+          collisions.push({
+            artist: masterItem.artist,
+            title: masterItem.title,
+            label: masterItem.label,
+            format: masterItem.format,
+            barcode: masterItem.barcode,
+            catalogue_number: masterItem.catalogue_number,
+            price: masterItem.price,
+            source_distributor: masterItem.source_distributor,
+            collision_reason: 'Duplicate Key (Distributor/CatNo/Title/Format)',
+            source_table: tableName,
+          })
         }
       }
     }
 
-    console.log(`--- Consolidation Report ---`)
-    console.log(`Total Rows Scanned:  ${totalScanned}`)
-    console.log(`Collision Count:     ${collisionCount}`)
-    console.log(`Final Unique Items:  ${uniqueItems.size}`)
-    console.log(`----------------------------`)
-
+    // Insert into Master (with merge for safety)
     const itemsToInsert = Array.from(uniqueItems.values())
     if (itemsToInsert.length > 0) {
+      await knex('master_catalogue').del()
       const chunkSize = 100
       for (let i = 0; i < itemsToInsert.length; i += chunkSize) {
         const chunk = itemsToInsert.slice(i, i + chunkSize)
-        await knex('master_catalogue')
-          .insert(chunk)
-          .onConflict([
-            'catalogue_number',
-            'source_distributor',
-            'title',
-            'format',
-          ])
-          .merge()
+        await knex('master_catalogue').insert(chunk)
       }
     }
+
+    // Insert into Collisions (The Holding Pen)
+    if (collisions.length > 0) {
+      await knex('master_collisions').del()
+      const chunkSize = 100
+      for (let i = 0; i < collisions.length; i += chunkSize) {
+        const chunk = collisions.slice(i, i + chunkSize)
+        await knex('master_collisions').insert(chunk)
+      }
+    }
+
+    console.log(`--- Consolidation Report ---`)
+    console.log(`Total Scanned:     ${totalScanned}`)
+    console.log(`Master Items:      ${uniqueItems.size}`)
+    console.log(`Collisions Found:  ${collisions.length}`)
+    console.log(`----------------------------`)
+
     return uniqueItems.size
   } catch (error) {
     console.error('[DB Error] Consolidation failed:', error)

@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express'
 import * as db from '../db/catalogue.js'
+import knex from '../db/connection.js'
 import {
   getDistributorConfig,
   getDistributorDataHandler,
 } from '../dataHandlers/getDistributorHandler.js'
 import { scrubber } from '../utils/scrubber.js'
 import path from 'path'
-import fs from 'fs'
 import { checkJwt } from '../auth0/auth.js'
 
 const router = Router()
@@ -21,7 +21,6 @@ const STAGING_TABLES = [
   'rhythmethod_group_combined_raw',
 ]
 
-// NEW: Route for full catalogue audit
 router.get('/master', async (req: Request, res: Response) => {
   try {
     const results = await db.getMasterCatalogue()
@@ -98,6 +97,41 @@ router.post('/consolidate', async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Consolidation failed' })
   }
 })
+
+// --- NEW COLLISION ROUTES ---
+
+router.get('/collisions', async (req: Request, res: Response) => {
+  try {
+    const results = await knex('master_collisions')
+      .select('*')
+      .orderBy('id', 'desc')
+    res.status(200).json(results)
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to fetch collisions' })
+  }
+})
+
+router.post('/collisions/resolve', async (req: Request, res: Response) => {
+  try {
+    const { id, action } = req.body
+    const item = await knex('master_collisions').where({ id }).first()
+
+    if (!item)
+      return res.status(404).json({ message: 'Collision item not found' })
+
+    if (action === 'promote') {
+      const { collision_reason, source_table, id: oldId, ...masterData } = item
+      await knex('master_catalogue').insert(masterData)
+    }
+
+    await knex('master_collisions').where({ id }).del()
+    res.status(200).json({ success: true })
+  } catch (error) {
+    res.status(500).json({ message: 'Resolution failed' })
+  }
+})
+
+// --- END COLLISION ROUTES ---
 
 router.post('/clear-staging', async (req: Request, res: Response) => {
   try {

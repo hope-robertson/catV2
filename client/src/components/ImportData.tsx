@@ -10,6 +10,7 @@ export default function ImportData() {
   const [previewData, setPreviewData] = useState<any[]>([])
   const [isConsolidating, setIsConsolidating] = useState(false)
   const [masterTotal, setMasterTotal] = useState<number>(0)
+  const [collisionCount, setCollisionCount] = useState<number>(0) // 👈 Track collisions
   const [stats, setStats] = useState<{
     count: number | null
     dist: string | null
@@ -34,6 +35,13 @@ export default function ImportData() {
       })
       const data = await res.json()
       setMasterTotal(data.total)
+
+      // Also fetch collision count to keep dashboard updated
+      const colRes = await fetch('/api/v1/catalogue/collisions', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const collisions = await colRes.json()
+      setCollisionCount(collisions.length)
     } catch (err) {
       console.error(err)
     }
@@ -42,6 +50,7 @@ export default function ImportData() {
   useEffect(() => {
     if (isAuthenticated) fetchMasterStats()
   }, [isAuthenticated])
+
   useEffect(() => {
     setPreviewData([])
   }, [distributor])
@@ -97,11 +106,13 @@ export default function ImportData() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
+      const result = await res.json()
+
       if (res.ok) {
-        alert('Consolidation Complete')
         setPreviewData([])
         setStats({ count: null, dist: null })
-        fetchMasterStats()
+        await fetchMasterStats() // Refreshes both master total and collision count
+        alert(`Consolidation Complete! ${result.count} items added to Master.`)
       }
     } catch (err) {
       alert('Consolidation failed')
@@ -152,9 +163,11 @@ export default function ImportData() {
         stagedCount={stats.count}
         distributor={stats.dist}
         isConsolidating={isConsolidating}
+        collisionCount={collisionCount} // 👈 Pass count to dashboard
       />
 
       <div className="bg-white p-8 rounded-xl shadow-sm border border-gray-100">
+        {/* ... Rest of the component (Upload and Merge sections) stays the same ... */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 border-b pb-8">
           <section className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center gap-2">
@@ -182,7 +195,7 @@ export default function ImportData() {
             <button
               onClick={handleUpload}
               disabled={isUploading}
-              className="w-full bg-blue-600 text-white py-2 rounded-md font-bold hover:bg-blue-700"
+              className="w-full bg-blue-600 text-white py-2 rounded-md font-bold hover:bg-blue-700 transition-colors shadow-sm active:scale-[0.98]"
             >
               {isUploading ? 'Processing...' : 'Upload to Staging'}
             </button>
@@ -198,7 +211,7 @@ export default function ImportData() {
             <button
               onClick={handleConsolidate}
               disabled={isConsolidating || previewData.length === 0}
-              className="w-full bg-green-600 text-white py-2 rounded-md font-bold hover:bg-green-700"
+              className="w-full bg-green-600 text-white py-2 rounded-md font-bold hover:bg-green-700 transition-colors shadow-sm active:scale-[0.98]"
             >
               {isConsolidating ? 'Merging...' : 'Consolidate to Master'}
             </button>
@@ -211,6 +224,7 @@ export default function ImportData() {
           </section>
         </div>
 
+        {/* Scrubber Preview logic remains exactly as is */}
         {previewData.length > 0 && (
           <div className="mt-8">
             <h3 className="text-lg font-semibold mb-4 text-orange-600 flex items-center gap-2">
