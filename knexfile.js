@@ -10,8 +10,8 @@ const config = {
     client: 'sqlite3',
     useNullAsDefault: true,
     connection: {
-      // Points to the sqlite file in your server/db folder
-      filename: Path.join(__dirname, 'server', 'db', 'dev.sqlite3'),
+      // Changed back to your preferred filename
+      filename: Path.join(__dirname, 'server', 'db', 'catV2.sqlite3'),
     },
     pool: {
       afterCreate: (conn, cb) => conn.run('PRAGMA foreign_keys = ON', cb),

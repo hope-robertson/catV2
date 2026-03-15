@@ -2,7 +2,6 @@
 import { Request, Response, NextFunction } from 'express'
 import knex from '../db/connection.js'
 
-// This helps TypeScript understand our custom properties
 export interface UserRequest extends Request {
   auth?: any
   dbUser?: {
@@ -21,33 +20,32 @@ export async function authorizeUser(
 ) {
   try {
     const authId = req.auth?.payload.sub
+    console.log('🛡️ [Auth] Checking ID:', authId)
 
     if (!authId) {
+      console.log('⚠️ [Auth] No sub in token')
       return res.status(401).json({ message: 'Unauthorized: No valid token.' })
     }
 
     const dbUser = await knex('staff').where('auth_id', authId).first()
 
     if (!dbUser) {
-      return res
-        .status(403)
-        .json({ message: 'Forbidden: You are not registered as staff.' })
+      console.log('🚫 [Auth] ID not found in database. Check your seeds!')
+      return res.status(403).json({ message: 'Forbidden: Not registered.' })
     }
 
+    console.log('👤 [Auth] User Found:', dbUser.name, '| Role:', dbUser.role)
     req.dbUser = dbUser
     next()
   } catch (error) {
-    console.error('Database authorization error:', error)
+    console.error('🔥 [Auth] DB Error:', error)
     res.status(500).json({ message: 'Internal Server Error' })
   }
 }
 
-// Helper to specifically check for orderers
 export function isOrderer(req: UserRequest, res: Response, next: NextFunction) {
   if (req.dbUser?.role === 'admin' || req.dbUser?.is_trusted_orderer) {
     return next()
   }
-  res
-    .status(403)
-    .json({ message: 'Forbidden: You do not have ordering privileges.' })
+  res.status(403).json({ message: 'Forbidden: No ordering privileges.' })
 }

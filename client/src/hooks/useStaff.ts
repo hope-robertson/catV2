@@ -1,3 +1,4 @@
+// client/src/hooks/useStaff.ts
 import { useQuery } from '@tanstack/react-query'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
@@ -17,13 +18,21 @@ export function useStaff() {
   const query = useQuery({
     queryKey: ['staffProfile'],
     queryFn: async () => {
-      const token = await getAccessTokenSilently()
-      const res = await request
-        .get('/api/v1/staff/me') // We'll create this route next
-        .set('Authorization', `Bearer ${token}`)
-      return res.body as StaffProfile
+      console.log('🔍 [useStaff] Fetching profile...')
+      try {
+        const token = await getAccessTokenSilently()
+        const res = await request
+          .get('/api/v1/staff/me')
+          .set('Authorization', `Bearer ${token}`)
+
+        console.log('✅ [useStaff] Success:', res.body)
+        return res.body as StaffProfile
+      } catch (err: any) {
+        console.error('❌ [useStaff] Error:', err.response?.body || err.message)
+        throw err
+      }
     },
-    enabled: isAuthenticated, // Only fetch if logged in via Auth0
+    enabled: isAuthenticated,
   })
 
   return {
