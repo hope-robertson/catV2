@@ -10,8 +10,13 @@ export default function SearchBar({ onSearch }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!query.trim()) return
     onSearch(query, filter)
+  }
+
+  const handleReset = () => {
+    setQuery('')
+    setFilter('all')
+    onSearch('', 'all') // Restores the full list
   }
 
   return (
@@ -27,6 +32,15 @@ export default function SearchBar({ onSearch }: Props) {
           onChange={(e) => setQuery(e.target.value)}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
         />
+        {query && (
+          <button
+            type="button"
+            onClick={handleReset}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 font-bold bg-gray-100 rounded-full w-6 h-6 flex items-center justify-center text-xs"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       <select

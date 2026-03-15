@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
 import ImportData from './components/ImportData.js'
 import CatalogueList from './components/CatalogueList.js'
-import CatalogueSearch from './components/CatalogueSearch.js'
 import './App.css'
 
 function App() {
@@ -22,16 +21,10 @@ function App() {
               Import
             </Link>
             <Link
-              to="/search"
-              className="text-blue-600 hover:text-blue-800 font-semibold text-lg"
-            >
-              Search
-            </Link>
-            <Link
               to="/catalogue"
               className="text-blue-600 hover:text-blue-800 font-semibold text-lg"
             >
-              Full List
+              Catalogue
             </Link>
           </div>
 
@@ -68,7 +61,6 @@ function App() {
         <main className="max-w-5xl mx-auto">
           <Routes>
             <Route path="/" element={<ImportData />} />
-            <Route path="/search" element={<CatalogueSearch />} />
             <Route path="/catalogue" element={<CatalogueList />} />
           </Routes>
         </main>
