@@ -8,6 +8,7 @@ export function useCatalogue() {
   const [results, setResults] = useState<MasterCatalogueRow[]>([])
   const [loading, setLoading] = useState(false)
 
+  // Initial load
   useEffect(() => {
     if (isAuthenticated) {
       const loadInitialData = async () => {
@@ -30,7 +31,18 @@ export function useCatalogue() {
     setLoading(true)
     try {
       const token = await getAccessTokenSilently()
-      const data = await searchCatalogue(query, filter, token)
+
+      let data: MasterCatalogueRow[]
+
+      // 🎯 THE FIX: Switch logic if the search is cleared
+      if (!query && (filter === 'All' || !filter)) {
+        console.log('🔄 Resetting to full master list...')
+        data = await getFullMasterList(token)
+      } else {
+        console.log(`📡 Searching for "${query}" with filter "${filter}"`)
+        data = await searchCatalogue(query, filter, token)
+      }
+
       setResults(data)
     } catch (err) {
       console.error('Search failed:', err)

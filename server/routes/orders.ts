@@ -5,6 +5,7 @@ import knex from '../db/connection.js'
 
 const router = express.Router()
 
+// Create a new order header
 router.post(
   '/',
   checkJwt,
@@ -26,6 +27,32 @@ router.post(
       res.status(201).json({ orderId: newOrderId })
     } catch (error) {
       res.status(500).json({ message: 'Error' })
+    }
+  },
+)
+
+// 🎯 NEW: Add an item to an existing order
+router.post(
+  '/:id/items',
+  checkJwt,
+  authorizeUser,
+  isOrderer,
+  async (req: UserRequest, res) => {
+    try {
+      const { id } = req.params
+      const { master_catalogue_id, quantity, ams_price } = req.body
+
+      await knex('order_items').insert({
+        order_id: id,
+        master_catalogue_id,
+        quantity,
+        ams_price,
+      })
+
+      res.status(201).json({ message: 'Item added successfully' })
+    } catch (error) {
+      console.error('[Order Error] Failed to add item:', error)
+      res.status(500).json({ message: 'Failed to add item' })
     }
   },
 )
