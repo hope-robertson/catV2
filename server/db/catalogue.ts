@@ -109,17 +109,27 @@ export async function searchMasterCatalogue(
   query: string,
   filter: string,
 ): Promise<MasterCatalogueRow[]> {
+  console.log(`[DB] Searching for query: "${query}" with filter: "${filter}"`)
+
   return knex<MasterCatalogueRow>('master_catalogue')
     .select('*')
     .where((builder) => {
-      if (filter === 'artist') builder.whereILike('artist', `%${query}%`)
-      else if (filter === 'title') builder.whereILike('title', `%${query}%`)
-      else
+      const term = `%${query}%`
+
+      if (filter === 'artist') {
+        builder.whereILike('artist', term)
+      } else if (filter === 'title') {
+        builder.whereILike('title', term)
+      } else if (filter === 'barcode') {
+        builder.whereILike('barcode', term)
+      } else {
+        // Default 'all' filter
         builder
-          .whereILike('artist', `%${query}%`)
-          .orWhereILike('title', `%${query}%`)
-          .orWhereILike('barcode', `%${query}%`)
-          .orWhereILike('catalogue_number', `%${query}%`)
+          .whereILike('artist', term)
+          .orWhereILike('title', term)
+          .orWhereILike('barcode', term)
+          .orWhereILike('catalogue_number', term)
+      }
     })
     .orderByRaw(
       "CASE WHEN artist = '' OR artist IS NULL THEN 'Various' ELSE artist END ASC",

@@ -35,11 +35,18 @@ router.get('/search', async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string
     const filter = (req.query.filter as string) || 'all'
+
+    console.log(`[Route] Incoming Search -> q: "${query}", filter: "${filter}"`)
+
     if (!query)
       return res.status(400).json({ message: 'Search query required' })
+
     const results = await db.searchMasterCatalogue(query, filter)
+    console.log(`[Route] Found ${results.length} matches in DB`)
+
     res.status(200).json(results)
   } catch (error) {
+    console.error('[Route Error] Search failed:', error)
     res.status(500).json({ message: 'Search failed' })
   }
 })
@@ -72,13 +79,11 @@ router.post('/import', async (req: Request, res: Response) => {
       dataToInsert,
     )
 
-    res
-      .status(200)
-      .json({
-        message: 'Import successful',
-        stagedCount: insertedCount,
-        distributor: config.name,
-      })
+    res.status(200).json({
+      message: 'Import successful',
+      stagedCount: insertedCount,
+      distributor: config.name,
+    })
   } catch (error: any) {
     res.status(500).json({ message: 'Import failed' })
   }
