@@ -43,11 +43,6 @@ export async function up(knex) {
 
       table.timestamps(true, true)
 
-      // 🛠️ THE CRITICAL CHANGE:
-      // This index MUST match the .onConflict() array in your catalogue.ts file.
-      // It allows:
-      // 1. Same Cat No from DIFFERENT distributors.
-      // 2. Same Cat No from SAME distributor but DIFFERENT Title (e.g., Red vs Black Vinyl).
       table.unique([
         'catalogue_number',
         'source_distributor',

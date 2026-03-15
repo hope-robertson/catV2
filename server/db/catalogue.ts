@@ -24,7 +24,7 @@ export async function importCatalogueData(
 
 export async function consolidateRawDataToMaster(): Promise<number> {
   try {
-    console.log('[DB] Starting Consolidation. Appending to Master...')
+    console.log('[DB] Starting Consolidation...')
     const rawTableNames = [
       'flying_nun_records_limited_raw',
       'border_music_raw',
@@ -35,12 +35,18 @@ export async function consolidateRawDataToMaster(): Promise<number> {
     ]
 
     const uniqueItems = new Map<string, any>()
+    let totalScanned = 0
+    let collisionCount = 0
 
     for (const tableName of rawTableNames) {
       const exists = await knex.schema.hasTable(tableName)
       if (!exists) continue
+
       const rawData = await knex(tableName).select('*')
       if (rawData.length === 0) continue
+
+      console.log(`[DB] Processing ${tableName}: ${rawData.length} rows`)
+      totalScanned += rawData.length
 
       for (const item of rawData) {
         const masterItem = {
@@ -57,12 +63,24 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           source_distributor: item.distributor,
           last_imported_at: new Date(),
         }
-        const key = `${masterItem.source_distributor}-${masterItem.catalogue_number}-${masterItem.title}-${masterItem.format}`
-        if (key && !uniqueItems.has(key)) {
+
+        // We use a lowercase key to avoid duplicates caused by CASE mismatches
+        const key =
+          `${masterItem.source_distributor}-${masterItem.catalogue_number}-${masterItem.title}-${masterItem.format}`.toLowerCase()
+
+        if (!uniqueItems.has(key)) {
           uniqueItems.set(key, masterItem)
+        } else {
+          collisionCount++
         }
       }
     }
+
+    console.log(`--- Consolidation Report ---`)
+    console.log(`Total Rows Scanned:  ${totalScanned}`)
+    console.log(`Collision Count:     ${collisionCount}`)
+    console.log(`Final Unique Items:  ${uniqueItems.size}`)
+    console.log(`----------------------------`)
 
     const itemsToInsert = Array.from(uniqueItems.values())
     if (itemsToInsert.length > 0) {
@@ -80,7 +98,7 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           .merge()
       }
     }
-    return itemsToInsert.length
+    return uniqueItems.size
   } catch (error) {
     console.error('[DB Error] Consolidation failed:', error)
     throw error
@@ -92,6 +110,7 @@ export async function getMasterCatalogue(limit = 200) {
     .select(
       'artist',
       'title',
+      'label',
       'format',
       'price',
       'source_distributor',
@@ -123,12 +142,12 @@ export async function searchMasterCatalogue(
       } else if (filter === 'barcode') {
         builder.whereILike('barcode', term)
       } else {
-        // Default 'all' filter
         builder
           .whereILike('artist', term)
           .orWhereILike('title', term)
           .orWhereILike('barcode', term)
           .orWhereILike('catalogue_number', term)
+          .orWhereILike('label', term)
       }
     })
     .orderByRaw(
