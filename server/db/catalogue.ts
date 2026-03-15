@@ -24,7 +24,7 @@ export async function importCatalogueData(
 
 export async function consolidateRawDataToMaster(): Promise<number> {
   try {
-    console.log('[DB] Starting Consolidation with Collision Tracking...')
+    console.log('[DB] Starting Incremental Consolidation...')
     const rawTableNames = [
       'flying_nun_records_limited_raw',
       'border_music_raw',
@@ -36,6 +36,20 @@ export async function consolidateRawDataToMaster(): Promise<number> {
 
     const uniqueItems = new Map<string, any>()
     const collisions: any[] = []
+
+    const existingMaster = await knex('master_catalogue').select(
+      'source_distributor',
+      'catalogue_number',
+      'title',
+      'format',
+    )
+    for (const item of existingMaster) {
+      const key =
+        `${item.source_distributor}-${item.catalogue_number}-${item.title}-${item.format}`.toLowerCase()
+      uniqueItems.set(key, true)
+    }
+
+    const itemsToInsert: any[] = []
     let totalScanned = 0
 
     for (const tableName of rawTableNames) {
@@ -45,7 +59,6 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       const rawData = await knex(tableName).select('*')
       if (rawData.length === 0) continue
 
-      console.log(`[DB] Processing ${tableName}: ${rawData.length} rows`)
       totalScanned += rawData.length
 
       for (const item of rawData) {
@@ -57,8 +70,6 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           format: item.format,
           price: item.price,
           is_nz_music: !!item.is_nz_music,
-          genres: item.genres,
-          bin_location: item.bin_location,
           label: item.label,
           source_distributor: item.distributor,
           last_imported_at: new Date(),
@@ -68,52 +79,45 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           `${masterItem.source_distributor}-${masterItem.catalogue_number}-${masterItem.title}-${masterItem.format}`.toLowerCase()
 
         if (!uniqueItems.has(key)) {
-          uniqueItems.set(key, masterItem)
+          uniqueItems.set(key, true)
+          itemsToInsert.push(masterItem)
         } else {
           collisions.push({
-            artist: masterItem.artist,
-            title: masterItem.title,
-            label: masterItem.label,
-            format: masterItem.format,
-            barcode: masterItem.barcode,
-            catalogue_number: masterItem.catalogue_number,
-            price: masterItem.price,
-            source_distributor: masterItem.source_distributor,
-            collision_reason: 'Duplicate Key (Distributor/CatNo/Title/Format)',
+            ...masterItem,
+            collision_reason: 'Duplicate of Existing Master or Batch',
             source_table: tableName,
           })
         }
       }
     }
 
-    // Insert into Master (with merge for safety)
-    const itemsToInsert = Array.from(uniqueItems.values())
     if (itemsToInsert.length > 0) {
-      await knex('master_catalogue').del()
       const chunkSize = 100
       for (let i = 0; i < itemsToInsert.length; i += chunkSize) {
-        const chunk = itemsToInsert.slice(i, i + chunkSize)
-        await knex('master_catalogue').insert(chunk)
+        await knex('master_catalogue').insert(
+          itemsToInsert.slice(i, i + chunkSize),
+        )
       }
     }
 
-    // Insert into Collisions (The Holding Pen)
+    await knex('master_collisions').del()
     if (collisions.length > 0) {
-      await knex('master_collisions').del()
       const chunkSize = 100
       for (let i = 0; i < collisions.length; i += chunkSize) {
-        const chunk = collisions.slice(i, i + chunkSize)
-        await knex('master_collisions').insert(chunk)
+        await knex('master_collisions').insert(
+          collisions.slice(i, i + chunkSize),
+        )
       }
     }
 
+    const finalCount = await getMasterCount()
     console.log(`--- Consolidation Report ---`)
-    console.log(`Total Scanned:     ${totalScanned}`)
-    console.log(`Master Items:      ${uniqueItems.size}`)
+    console.log(`New Items Added:   ${itemsToInsert.length}`)
     console.log(`Collisions Found:  ${collisions.length}`)
+    console.log(`Total Master Size: ${finalCount}`)
     console.log(`----------------------------`)
 
-    return uniqueItems.size
+    return itemsToInsert.length
   } catch (error) {
     console.error('[DB Error] Consolidation failed:', error)
     throw error
@@ -143,26 +147,25 @@ export async function searchMasterCatalogue(
   query: string,
   filter: string,
 ): Promise<MasterCatalogueRow[]> {
-  console.log(`[DB] Searching for query: "${query}" with filter: "${filter}"`)
+  console.log(`[DB] Searching for: "${query}" with filter: "${filter}"`)
 
   return knex<MasterCatalogueRow>('master_catalogue')
     .select('*')
     .where((builder) => {
       const term = `%${query}%`
-
       if (filter === 'artist') {
-        builder.whereILike('artist', term)
+        builder.where('artist', 'like', term)
       } else if (filter === 'title') {
-        builder.whereILike('title', term)
+        builder.where('title', 'like', term)
       } else if (filter === 'barcode') {
-        builder.whereILike('barcode', term)
+        builder.where('barcode', 'like', term)
       } else {
         builder
-          .whereILike('artist', term)
-          .orWhereILike('title', term)
-          .orWhereILike('barcode', term)
-          .orWhereILike('catalogue_number', term)
-          .orWhereILike('label', term)
+          .where('artist', 'like', term)
+          .orWhere('title', 'like', term)
+          .orWhere('barcode', 'like', term)
+          .orWhere('catalogue_number', 'like', term)
+          .orWhere('label', 'like', term)
       }
     })
     .orderByRaw(
