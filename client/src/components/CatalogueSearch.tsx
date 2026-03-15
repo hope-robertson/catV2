@@ -14,6 +14,11 @@ const CatalogueSearch = () => {
   const [results, setResults] = useState<CatalogueItem[]>([])
   const [loading, setLoading] = useState(false)
 
+  const handleReset = () => {
+    setQuery('')
+    setResults([])
+  }
+
   useEffect(() => {
     if (query.trim().length < 2) {
       setResults([])
@@ -46,13 +51,25 @@ const CatalogueSearch = () => {
       <h2 className="text-2xl font-bold mb-4 text-gray-800">
         Catalogue Search
       </h2>
-      <input
-        type="text"
-        className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-lg"
-        placeholder="Search Artist, Title, or Catalogue Number..."
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+
+      {/* Search Input with Reset Button */}
+      <div className="relative">
+        <input
+          type="text"
+          className="w-full p-3 pr-20 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-lg"
+          placeholder="Search Artist, Title, or Catalogue Number..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {query && (
+          <button
+            onClick={handleReset}
+            className="absolute right-3 top-1/2 -translate-y-1/2 bg-gray-100 hover:bg-gray-200 text-gray-600 text-xs font-bold py-1.5 px-3 rounded-md transition-colors"
+          >
+            ✕ RESET
+          </button>
+        )}
+      </div>
 
       {loading && (
         <p className="mt-4 text-blue-600 font-medium animate-pulse">
