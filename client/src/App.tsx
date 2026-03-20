@@ -11,6 +11,7 @@ import { useStaff } from './hooks/useStaff.js'
 import ImportData from './components/ImportData.js'
 import CatalogueList from './components/CatalogueList.js'
 import CreateOrder from './components/CreateOrder.js'
+import AdminPanel from './components/AdminPanel.js' // 👈 New Import
 import './App.css'
 
 function App() {
@@ -42,7 +43,6 @@ function App() {
             >
               Catalogue
             </Link>
-
             {isTrusted && (
               <Link
                 to="/orders/new"
@@ -51,7 +51,6 @@ function App() {
                 Create Order
               </Link>
             )}
-
             {isAdmin && (
               <Link
                 to="/admin"
@@ -109,46 +108,16 @@ function App() {
           <Routes>
             <Route path="/" element={<ImportData />} />
             <Route path="/catalogue" element={<CatalogueList />} />
-
             <Route
               path="/orders/new"
               element={
                 isTrusted ? <CreateOrder /> : <Navigate to="/catalogue" />
               }
             />
-
+            {/* 🎯 NEW: Admin Panel Route linked */}
             <Route
               path="/admin"
-              element={
-                isAdmin ? (
-                  <div className="bg-white p-8 rounded-2xl shadow-xl border-2 border-purple-100 max-w-2xl mx-auto">
-                    <h2 className="text-2xl font-black uppercase text-purple-600 mb-6">
-                      Command Center
-                    </h2>
-                    <div className="p-6 bg-purple-50 rounded-xl border border-purple-100">
-                      <h3 className="font-bold text-gray-800 uppercase text-xs tracking-widest mb-2">
-                        Global Shop Wealth Settings
-                      </h3>
-                      <p className="text-sm text-gray-500 mb-6">
-                        Set the shop's current economic climate to influence
-                        order markup logic.
-                      </p>
-                      <div className="flex gap-4">
-                        {['poor', 'ok', 'wealthy'].map((w) => (
-                          <button
-                            key={w}
-                            className="flex-1 px-4 py-3 bg-white border-2 border-purple-200 rounded-xl font-black text-[10px] uppercase hover:border-purple-600 transition-all"
-                          >
-                            {w}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <Navigate to="/catalogue" />
-                )
-              }
+              element={isAdmin ? <AdminPanel /> : <Navigate to="/catalogue" />}
             />
           </Routes>
         </main>
