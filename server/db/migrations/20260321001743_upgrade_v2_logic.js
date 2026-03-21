@@ -1,14 +1,14 @@
 export async function up(knex) {
   // 1. ADD AMS COMPARISON TO CATALOGUE
-  // Storing the US wholesale price here allows side-by-side procurement checks.
+  // Storing the US wholesale price allows side-by-side procurement checks.
   await knex.schema.alterTable('master_catalogue', (table) => {
     table.float('ams_wholesale_usd').nullable()
     table.timestamp('ams_last_checked').nullable()
   })
 
   // 2. CREATE INVESTORS TABLE
-  // Renamed from 'vendors' to avoid conflict with POS consignment artists.
-  // This covers 'Shop', 'Nick', 'Shannon', etc., for the 50/50 profit splits.
+  // Used for 'Shop' and Staff personal investments (50/50 profit splits).
+  // Distinguishable from POS 'Vendors' (Consignment artists).
   await knex.schema.createTable('investors', (table) => {
     table.increments('id').primary()
     table.string('name').notNullable() 
@@ -17,11 +17,12 @@ export async function up(knex) {
     table.timestamps(true, true)
   })
 
-  // 3. ADD SURVEY & ROSTER FIELDS
-  // specialist_genres helps with the "Rotating Picks" logic.
+  // 3. ADD SURVEY, ROSTER & ROTATION FIELDS
   await knex.schema.alterTable('staff', (table) => {
     table.text('specialist_genres').nullable()
     table.timestamp('last_order_participation_at').nullable()
+    // 🎯 PICK DEBT: Tracks missed sessions to automate the priority wheel.
+    table.integer('missed_orders_count').defaultTo(0)
   })
 
   await knex.schema.alterTable('customers', (table) => {
@@ -30,7 +31,7 @@ export async function up(knex) {
   })
 
   // 4. CREATE ROSTER/AVAILABILITY TABLE
-  // For tracking holidays/away dates to trigger the "Ghost Picker" wishlist logic.
+  // Tracks holidays/gigs to trigger the "Ghost Picker" wishlist logic.
   await knex.schema.createTable('staff_availability', (table) => {
     table.increments('id').primary()
     table.integer('staff_id').unsigned().references('id').inTable('staff').onDelete('CASCADE')
@@ -41,8 +42,7 @@ export async function up(knex) {
   })
 
   // 5. REFACTOR ORDER ITEMS
-  // Linking items to the Investor (who pays), the Customer (if bespoke), 
-  // and the Staff member who chose it.
+  // Links items to the Investor, Customer, and the Staff member making the pick.
   await knex.schema.alterTable('order_items', (table) => {
     table.integer('investor_id').unsigned().references('id').inTable('investors').onDelete('SET NULL')
     table.integer('customer_id').unsigned().references('id').inTable('customers').onDelete('SET NULL')
@@ -52,8 +52,11 @@ export async function up(knex) {
 }
 
 export async function down(knex) {
-  // 1. REVERSE ORDER ITEMS (Drop FKs/Columns first)
+  // 1. REVERSE ORDER ITEMS (Drop foreign keys first)
   await knex.schema.alterTable('order_items', (table) => {
+    table.dropForeign('investor_id')
+    table.dropForeign('customer_id')
+    table.dropForeign('picked_by_staff_id')
     table.dropColumn('investor_id')
     table.dropColumn('customer_id')
     table.dropColumn('picked_by_staff_id')
@@ -68,6 +71,7 @@ export async function down(knex) {
   await knex.schema.alterTable('staff', (table) => {
     table.dropColumn('specialist_genres')
     table.dropColumn('last_order_participation_at')
+    table.dropColumn('missed_orders_count')
   })
 
   await knex.schema.alterTable('customers', (table) => {
