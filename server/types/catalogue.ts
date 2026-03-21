@@ -79,3 +79,20 @@ export type CsvRowMapper = (
   data: Record<string, string>,
   distributor: string,
 ) => CatalogueRow
+
+export interface DistributorConfig {
+  // --- Existing Import Logic ---
+  rawTableName: any
+  name: string 
+  value: string 
+  fileType: 'xlsx' | 'csv'
+  accept: string 
+  sheets?: Record<string, string> 
+  headerRowsToSkip: number 
+  requiresFormatFilter?: boolean 
+
+  // --- NEW Procurement & Pricing Logic ---
+  origin: 'local' | 'import'
+  currency: 'NZD' | 'USD' | 'JPY' | 'GBP'
+  defaultFreightPerItem?: number // Optional, as some (like consignment) might not have it
+}
