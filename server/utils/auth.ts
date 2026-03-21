@@ -1,9 +1,10 @@
 import { auth } from 'express-oauth2-jwt-bearer'
 import dotenv from 'dotenv'
+import path from 'path' // 👈 Add this
 
-dotenv.config()
+// 🎯 Explicitly point to the root .env
+dotenv.config({ path: path.resolve(process.cwd(), '.env') })
 
-// Log these to the terminal to make sure your Mac is reading the .env file
 console.log('--- Auth0 Connection Test ---')
 console.log('Audience:', process.env.AUTH0_AUDIENCE)
 console.log('Issuer:', process.env.AUTH0_ISSUER_BASE_URL)
