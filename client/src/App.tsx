@@ -11,8 +11,7 @@ import { useStaff } from './hooks/useStaff.js'
 import ImportData from './components/ImportData.js'
 import CatalogueList from './components/CatalogueList.js'
 import CreateOrder from './components/CreateOrder.js'
-import AdminPanel from './components/AdminPanel.js' // 👈 New Import
-import './App.css'
+import AdminPanel from './components/AdminPanel.js'
 
 function App() {
   const {
@@ -22,9 +21,12 @@ function App() {
     user,
     isLoading: authLoading,
   } = useAuth0()
+
   const { isAdmin, isTrusted, isLoading: staffLoading } = useStaff()
 
-  const isLoading = authLoading || staffLoading
+  // 🛡️ LOGIC FIX: Only wait for staff data if the user is actually authenticated.
+  // This prevents the "Scanning Bio-Signs" loop for logged-out users.
+  const isLoading = authLoading || (isAuthenticated && staffLoading)
 
   return (
     <Router>
@@ -114,7 +116,6 @@ function App() {
                 isTrusted ? <CreateOrder /> : <Navigate to="/catalogue" />
               }
             />
-            {/* 🎯 NEW: Admin Panel Route linked */}
             <Route
               path="/admin"
               element={isAdmin ? <AdminPanel /> : <Navigate to="/catalogue" />}

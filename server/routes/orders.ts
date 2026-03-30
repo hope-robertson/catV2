@@ -31,7 +31,7 @@ router.post(
   },
 )
 
-// 🎯 NEW: Add an item to an existing order
+// 🎯 Add an item to an existing order
 router.post(
   '/:id/items',
   checkJwt,
@@ -53,6 +53,29 @@ router.post(
     } catch (error) {
       console.error('[Order Error] Failed to add item:', error)
       res.status(500).json({ message: 'Failed to add item' })
+    }
+  },
+)
+
+// 💣 NEW: Nuke an existing order
+router.delete(
+  '/:id',
+  checkJwt,
+  authorizeUser,
+  isOrderer,
+  async (req: UserRequest, res) => {
+    const { id } = req.params
+    try {
+      await knex.transaction(async (trx) => {
+        // Delete items first to respect foreign key constraints
+        await trx('order_items').where('order_id', id).del()
+        // Delete the order header
+        await trx('orders').where('id', id).del()
+      })
+      res.json({ message: 'Order and associated items nuked.' })
+    } catch (error) {
+      console.error('[Order Error] Failed to nuke order:', error)
+      res.status(500).json({ message: 'Failed to nuke order' })
     }
   },
 )
