@@ -45,7 +45,7 @@ export default function OrderReview() {
 
   return (
     <div className="max-w-5xl mx-auto mt-10 space-y-8 pb-20">
-      {/* 📊 FINANCIAL HUD */}
+      {/* FINANCIAL HUD */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-3xl shadow-xl border-b-4 border-green-500">
           <p className="text-[10px] font-black uppercase text-gray-400 tracking-widest">
