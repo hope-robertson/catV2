@@ -6,10 +6,28 @@ export async function up(knex) {
       table.string('auth_id').unique().notNullable()
       table.string('name').notNullable()
       table.string('email').unique()
-      table.string('role').notNullable().defaultTo('user') // 'admin' or 'user'
+      table.string('phone')
+      table.string('preferred_contact').defaultTo('email') // 'email' or 'text'
+      table.boolean('ok_to_text').defaultTo(false)
+      table.string('color').defaultTo('#BABEFF') // The "Pirate Color" for the roster
 
-      // The "Ordering" Permissions
+      // Roles & Permissions
+      table.boolean('is_admin').defaultTo(false)
       table.boolean('is_trusted_orderer').defaultTo(false)
+
+      // The Training Checklist
+      table.boolean('trained_open').defaultTo(false)
+      table.boolean('trained_close').defaultTo(false)
+      table.boolean('trained_mail_orders').defaultTo(false)
+      table.boolean('trained_restocking').defaultTo(false)
+      table.boolean('trained_data_entry').defaultTo(false)
+      table.boolean('trained_books').defaultTo(false)
+      table.boolean('trained_comics').defaultTo(false)
+
+      // Expertise & Onboarding
+      table.text('genre_expertise')
+      table.text('fav_comics_response') // "Name 2+ fav comics"
+      table.text('fav_books_response') // "What's a book?"
       table.boolean('has_completed_onboarding').defaultTo(false)
 
       table.timestamps(true, true)
