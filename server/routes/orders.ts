@@ -57,7 +57,7 @@ router.post(
   },
 )
 
-// 💣 NEW: Nuke an existing order
+// Nuke an existing order
 router.delete(
   '/:id',
   checkJwt,
@@ -81,3 +81,77 @@ router.delete(
 )
 
 export default router
+
+router.get(
+  '/:id/stats',
+  checkJwt,
+  authorizeUser,
+  async (req: UserRequest, res) => {
+    const { id } = req.params
+    try {
+      const items = await knex('order_items')
+        .where('order_id', id)
+        .select('ams_price', 'quantity')
+
+      const total = items.reduce(
+        (sum, item) => sum + item.ams_price * item.quantity,
+        0,
+      )
+
+      res.json({ total })
+    } catch (error) {
+      res.status(500).json({ message: 'Error' })
+    }
+  },
+)
+
+// join order_items with master_catalogue to get item details, and calculate summary stats for an order
+router.get(
+  '/:id/summary',
+  checkJwt,
+  authorizeUser,
+  async (req: UserRequest, res) => {
+    const { id } = req.params
+
+    try {
+      const summary = await knex('order_items')
+        .join(
+          'master_catalogue',
+          'order_items.master_catalogue_id',
+          'master_catalogue.id',
+        )
+
+        // track who picked the item
+        .leftJoin('staff', 'order_items.staff_id', 'staff.id')
+        .where('order_items.order_id', id)
+        .select(
+          'order_items.id as item_id',
+          'master_catalogue.artist',
+          'master_catalogue.title',
+          'master_catalogue.ams_price',
+          'master_catalogue.category',
+          'order_items.quantity',
+          'staff.name as staff_member',
+        )
+
+      // Calculate totals
+      const totalCost = summary.reduce(
+        (acc, item) => acc + item.ams_price * item.quantity,
+        0,
+      )
+      const riskyCount = summary.filter((i) => i.category === 'risky').length
+      const totalItems = summary.length
+
+      res.json({
+        items: summary,
+        stats: {
+          totalCost,
+          totalItems,
+          bangerRatio: totalItems > 0 ? (riskyCount / totalItems) * 100 : 0,
+        },
+      })
+    } catch (error) {
+      res.status(500).json({ message: 'Summary calculation failed' })
+    }
+  },
+)

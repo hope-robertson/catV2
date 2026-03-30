@@ -85,7 +85,13 @@ export default function AdminPanel() {
 
         <div className="mt-8 pt-6 border-t border-gray-100 text-center">
           <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
-            Starfleet Command Protocol v2.0
+            Welcome to the Admin Screen. Some changes here may require a
+            majority vote from the team. As of 30/03/2026, this is done via
+            polls in a fb group, but we are hoping to have a functional poll
+            system working here soon. Adjusting shop wealth will require a vote
+            amongst admins, if not all. Auto-Suggestions on how much to spend
+            will be related to this. You may designate others as admins, or as
+            being trained in the ordering process.
           </p>
         </div>
       </div>
