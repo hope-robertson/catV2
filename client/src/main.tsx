@@ -7,7 +7,6 @@ import './index.css'
 
 const queryClient = new QueryClient()
 
-// 🛰️ BIO-SIGN DIAGNOSTICS
 // Open your browser console (Cmd + Option + J on Mac) to verify these load!
 console.log('--- 🛡️ Frontend Auth0 Diagnostic ---')
 console.log('Vite Domain:', import.meta.env.VITE_AUTH0_DOMAIN)
@@ -24,6 +23,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         authorizationParams={{
           redirect_uri: window.location.origin,
           audience: import.meta.env.VITE_AUTH0_AUDIENCE,
+          // This allows the server to see the user's email for the handshake.
+          scope: 'openid profile email',
         }}
       >
         <App />

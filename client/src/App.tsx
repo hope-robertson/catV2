@@ -11,6 +11,7 @@ import { useStaff } from './hooks/useStaff.js'
 import ImportData from './components/ImportData.js'
 import CatalogueList from './components/CatalogueList.js'
 import CreateOrder from './components/CreateOrder.js'
+import OrderReview from './components/OrderReview.js' // 👈 IMPORTED
 import AdminPanel from './components/AdminPanel.js'
 
 function App() {
@@ -24,8 +25,6 @@ function App() {
 
   const { isAdmin, isTrusted, isLoading: staffLoading } = useStaff()
 
-  // 🛡️ LOGIC FIX: Only wait for staff data if the user is actually authenticated.
-  // This prevents the "Scanning Bio-Signs" loop for logged-out users.
   const isLoading = authLoading || (isAuthenticated && staffLoading)
 
   return (
@@ -33,6 +32,7 @@ function App() {
       <div className="min-h-screen bg-gray-100 p-4 font-sans text-gray-900">
         <nav className="bg-white shadow-md rounded-lg p-4 mb-6 flex justify-between items-center max-w-5xl mx-auto border-b-4 border-blue-600">
           <div className="flex space-x-6 items-center">
+            {/* Standard Links */}
             <Link
               to="/"
               className="text-blue-600 hover:text-blue-800 font-black text-xs uppercase tracking-widest"
@@ -45,6 +45,8 @@ function App() {
             >
               Catalogue
             </Link>
+
+            {/* Senior Officer / Admin Only */}
             {isTrusted && (
               <Link
                 to="/orders/new"
@@ -53,6 +55,8 @@ function App() {
                 Create Order
               </Link>
             )}
+
+            {/* Captain Only */}
             {isAdmin && (
               <Link
                 to="/admin"
@@ -110,12 +114,22 @@ function App() {
           <Routes>
             <Route path="/" element={<ImportData />} />
             <Route path="/catalogue" element={<CatalogueList />} />
+
+            {/* Guarded Order Routes */}
             <Route
               path="/orders/new"
               element={
                 isTrusted ? <CreateOrder /> : <Navigate to="/catalogue" />
               }
             />
+            <Route
+              path="/orders/:id/review"
+              element={
+                isTrusted ? <OrderReview /> : <Navigate to="/catalogue" />
+              }
+            />
+
+            {/* Guarded Admin Route */}
             <Route
               path="/admin"
               element={isAdmin ? <AdminPanel /> : <Navigate to="/catalogue" />}

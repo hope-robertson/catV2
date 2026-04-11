@@ -10,7 +10,6 @@ export default function OrderReview() {
   const navigate = useNavigate()
   const { getAccessTokenSilently } = useAuth0()
 
-  // MANUAL INTEL: Genres that are currently low in stock
   const [lowGenres, setLowGenres] = useState<string[]>([])
   const [newGenre, setNewGenre] = useState('')
 
@@ -24,6 +23,35 @@ export default function OrderReview() {
       return res.body
     },
   })
+
+  // 📝 THE EXPORTER: Turns the current manifest into a text file
+  const downloadOrderList = () => {
+    if (!summary) return
+
+    const header = `RIDE ON SUPER SOUND - ORDER SESSION [${id}]\n`
+    const dateLine = `Generated: ${new Date().toLocaleDateString()}\n`
+    const sep = `--------------------------------------------------\n`
+
+    const body = summary.items
+      .map(
+        (item: any) =>
+          `${item.artist.toUpperCase()} - ${item.title} (x${item.quantity}) @ ${formatCurrency(item.ams_price)} ea`,
+      )
+      .join('\n')
+
+    const total = `\n${sep}TOTAL PROJECTED SPEND: ${formatCurrency(summary.stats.totalCost)}\n`
+    const footer = `${sep}END OF MANIFEST`
+
+    const blob = new Blob([header + dateLine + sep + body + total + footer], {
+      type: 'text/plain',
+    })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `order_draft_${id}_${new Date().toISOString().split('T')[0]}.txt`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   const addGenre = () => {
     if (newGenre && !lowGenres.includes(newGenre)) {
@@ -44,7 +72,7 @@ export default function OrderReview() {
   const isOverBudget = stats.totalCost > budgetLimit
 
   return (
-    <div className="max-w-5xl mx-auto mt-10 space-y-8 pb-20">
+    <div className="max-w-5xl mx-auto mt-10 space-y-8 pb-20 px-4">
       {/* FINANCIAL HUD */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-3xl shadow-xl border-b-4 border-green-500">
@@ -79,6 +107,17 @@ export default function OrderReview() {
         {/* LEFT COLUMN: The Order List */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-3xl shadow-xl overflow-hidden border border-gray-100">
+            <div className="p-6 border-b flex justify-between items-center bg-gray-50/50">
+              <h2 className="text-sm font-black uppercase tracking-widest">
+                Order Picks
+              </h2>
+              <button
+                onClick={downloadOrderList}
+                className="bg-gray-900 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all flex items-center gap-2"
+              >
+                📄 Export .txt
+              </button>
+            </div>
             <table className="w-full text-left">
               <thead className="bg-gray-50 border-b">
                 <tr>
@@ -97,7 +136,9 @@ export default function OrderReview() {
                     className="hover:bg-gray-50 transition-colors"
                   >
                     <td className="p-4">
-                      <p className="font-black text-gray-900">{item.artist}</p>
+                      <p className="font-black text-gray-900 uppercase">
+                        {item.artist}
+                      </p>
                       <p className="text-xs text-gray-500 font-bold">
                         {item.title} (x{item.quantity})
                       </p>
@@ -112,9 +153,8 @@ export default function OrderReview() {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Tactical Intel & Staff */}
+        {/* RIGHT COLUMN: Tactical Intel */}
         <div className="space-y-6">
-          {/* GENRE REPLENISHMENT */}
           <div className="bg-blue-600 p-6 rounded-3xl shadow-xl text-white text-xs">
             <h3 className="font-black uppercase tracking-widest mb-4">
               Replenishment Protocol
@@ -146,13 +186,11 @@ export default function OrderReview() {
             </div>
           </div>
 
-          {/* SUGGESTED STAFF */}
           <div className="bg-white p-6 rounded-3xl shadow-xl border border-gray-100">
             <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-4">
               Suggested Crew
             </h3>
             <div className="space-y-4">
-              {/* This is where we will map over staff whose expertise matches lowGenres */}
               <div className="flex items-center justify-between group">
                 <div>
                   <p className="font-black text-gray-900">Hope Robertson</p>
@@ -167,9 +205,6 @@ export default function OrderReview() {
                 </button>
               </div>
             </div>
-            <button className="w-full mt-6 py-3 border-2 border-dashed border-gray-200 text-gray-400 rounded-xl text-[9px] font-black uppercase tracking-widest hover:border-blue-300 hover:text-blue-500 transition-all">
-              Invite All Staff
-            </button>
           </div>
         </div>
       </div>
