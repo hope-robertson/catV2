@@ -70,23 +70,75 @@ router.get('/staff', checkJwt, authorizeUser, async (req, res) => {
   }
 })
 
-// 🏴‍☠️ RECRUITMENT (Lazy-Linking)
-router.post('/staff', checkJwt, authorizeUser, async (req, res) => {
-  try {
-    const { name, email, phone } = req.body // Whitelist data
-    await knex('staff').insert({
-      name,
-      email,
-      phone: phone || null,
-      is_admin: false,
-      is_trusted_orderer: false,
-      has_completed_onboarding: false,
-    })
-    res.status(201).json({ message: 'New crew member recruited to manifest' })
-  } catch (error) {
-    res.status(500).json({ message: 'Recruitment failed' })
-  }
-})
+// 🏴‍☠️ RECRUITMENT (With Automatic Queue Updates)
+router.post(
+  '/staff',
+  checkJwt,
+  authorizeUser,
+  async (req: UserRequest, res) => {
+    // Security Gate: Only Captains can recruit
+    if (!req.dbUser?.is_admin) {
+      return res
+        .status(403)
+        .json({ message: 'Forbidden: Only an Admin can add new crew.' })
+    }
+
+    const { name, email, phone } = req.body
+
+    try {
+      // 🔗 TRANSACTION: All succeeds or all fails
+      await knex.transaction(async (trx) => {
+        // 1. Add to Staff Table
+        const [newStaffId] = await trx('staff').insert({
+          name,
+          email,
+          phone: phone || null,
+          is_admin: false,
+          is_trusted_orderer: false,
+          has_completed_onboarding: false,
+        })
+
+        // 2. Fetch existing rotations (Rostering, Ordering, etc.)
+        const rotations = await trx('duty_rotations').select(
+          'id',
+          'queue_order',
+        )
+
+        // 3. Inject new pirate into every active queue
+        for (const rotation of rotations) {
+          // Parse the existing queue or start empty
+          const currentQueue: number[] = JSON.parse(
+            rotation.queue_order || '[]',
+          )
+
+          // Add new ID to the end of the line
+          if (!currentQueue.includes(newStaffId)) {
+            currentQueue.push(newStaffId)
+          }
+
+          await trx('duty_rotations')
+            .where('id', rotation.id)
+            .update({
+              queue_order: JSON.stringify(currentQueue),
+              updated_at: knex.fn.now(),
+            })
+        }
+      })
+
+      console.log(
+        `✅ Recruitment Complete: ${name} added to manifest and rotations.`,
+      )
+      res
+        .status(201)
+        .json({ message: 'New crew member recruited and added to rotations.' })
+    } catch (error) {
+      console.error('🔥 Recruitment failed:', error)
+      res
+        .status(500)
+        .json({ message: 'Recruitment failed: Database sync error.' })
+    }
+  },
+)
 
 router.patch('/staff/:id', checkJwt, authorizeUser, async (req, res) => {
   const { id } = req.params
