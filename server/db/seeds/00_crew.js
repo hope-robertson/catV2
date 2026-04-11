@@ -8,7 +8,7 @@ export async function seed(knex) {
     {
       auth_id: null, // 👈 Leave null to test the "Lazy Linking" handshake!
       name: 'Hope Robertson',
-      email: 'hope.robertson.nz@gmail.vom', // 👈 MUST match your Auth0 email
+      email: 'hope.robertson.nz@gmail.com', // 👈 MUST match your Auth0 email
       is_admin: true,
       is_trusted_orderer: true,
       trained_open: true,
@@ -19,7 +19,7 @@ export async function seed(knex) {
     {
       auth_id: 'fake|1',
       name: 'Nick W',
-      email: 'nick@ridesuper.com ',
+      email: 'nick@nickwhite.org',
       is_admin: true,
       is_trusted_orderer: true,
       trained_open: true,
