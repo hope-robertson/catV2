@@ -1,4 +1,3 @@
-// client/src/hooks/useStaff.ts
 import { useQuery } from '@tanstack/react-query'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
@@ -7,7 +6,8 @@ export interface StaffProfile {
   id: number
   auth_id: string
   name: string
-  role: 'admin' | 'user'
+  // 🎯 UPDATED: We use the boolean now, not the 'role' string
+  is_admin: boolean
   is_trusted_orderer: boolean
   has_completed_onboarding: boolean
 }
@@ -37,8 +37,9 @@ export function useStaff() {
 
   return {
     ...query,
-    isAdmin: query.data?.role === 'admin',
-    isTrusted: query.data?.is_trusted_orderer || query.data?.role === 'admin',
+    // 🎯 UPDATED: Logic now looks for the boolean flags
+    isAdmin: query.data?.is_admin || false,
+    isTrusted: query.data?.is_trusted_orderer || query.data?.is_admin || false,
     needsOnboarding: query.data?.has_completed_onboarding === false,
   }
 }

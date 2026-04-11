@@ -6,9 +6,11 @@ export async function seed(knex) {
   // 1. Insert the Crew
   await knex('staff').insert([
     {
-      auth_id: null, // 👈 Leave null to test the "Lazy Linking" handshake!
+      // 🎯 THE KEY: Hard-coding your ID links your login to this record instantly.
+      // It is safe to store this in your code; it's just a public identifier.
+      auth_id: 'google-oauth2|116983891333987843357',
       name: 'Hope Robertson',
-      email: 'hope.robertson.nz@gmail.com', // 👈 MUST match your Auth0 email
+      email: 'hope.robertson.nz@gmail.com',
       is_admin: true,
       is_trusted_orderer: true,
       trained_open: true,
@@ -48,5 +50,5 @@ export async function seed(knex) {
     { key: 'internet_monthly', value: '80' },
   ])
 
-  console.log('🚀 Manifest Loaded: Crew and Expenses are online.')
+  console.log('🚀 Manifest Loaded: Hope is confirmed as Ship Captain.')
 }
