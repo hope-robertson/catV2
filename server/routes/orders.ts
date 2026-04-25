@@ -5,6 +5,33 @@ import knex from '../db/connection.js'
 
 const router = express.Router()
 
+// 🎯 GET /api/v1/orders
+// Returns all active ordering sessions for the Hub
+router.get('/', checkJwt, authorizeUser, async (req: UserRequest, res) => {
+  try {
+    const orders = await knex('orders')
+      .whereNot('status', 'finalized') // Hide orders that are totally done
+      .orderBy('created_at', 'desc')
+    res.json(orders)
+  } catch (error) {
+    console.error('🔥 Failed to fetch active orders:', error)
+    res.status(500).json({ message: 'Error fetching orders' })
+  }
+})
+
+// 🎯 GET /api/v1/orders/:id
+// Returns details for a single specific order header
+router.get('/:id', checkJwt, authorizeUser, async (req: UserRequest, res) => {
+  try {
+    const order = await knex('orders').where('id', req.params.id).first()
+    if (!order) return res.status(404).json({ message: 'Order not found' })
+    res.json(order)
+  } catch (error) {
+    console.error('🔥 Error fetching order details:', error)
+    res.status(500).json({ message: 'Error fetching order detail' })
+  }
+})
+
 // Create a new order header
 router.post(
   '/',
@@ -83,7 +110,7 @@ router.delete(
   },
 )
 
-// 🎯 STATS: Powering the Catalogue HUD
+// STATS: Powering the Catalogue HUD
 router.get(
   '/:id/stats',
   checkJwt,
@@ -100,7 +127,6 @@ router.get(
         0,
       )
 
-      // 🎯 THE NEW ADDITION: Count total units ordered
       const count = items.reduce((sum, item) => sum + item.quantity, 0)
 
       res.json({ total, count })
