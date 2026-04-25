@@ -14,24 +14,29 @@ router.post(
   async (req: UserRequest, res) => {
     try {
       const { distributor, budget_limit, wealth_at_creation } = req.body
+
       const [newOrderId] = await knex('orders').insert({
         distributor,
         budget_limit,
-        wealth_at_creation,
-        status: 'draft',
-        created_by_auth_id: req.dbUser?.auth_id,
+        wealth_at_creation: wealth_at_creation || 'ok',
+        status: 'active',
+        // 🎯 THE FIX: Use created_by_id (integer) instead of auth_id
+        created_by_id: req.dbUser?.id,
         pct_customer: 0,
         pct_classics: 0,
         pct_risky: 0,
       })
-      res.status(201).json({ orderId: newOrderId })
+
+      console.log(`🚢 Order #${newOrderId} initialised for ${distributor}`)
+      res.status(201).json({ id: newOrderId }) // Matches frontend expectation
     } catch (error) {
-      res.status(500).json({ message: 'Error' })
+      console.error('🔥 Initialization failed:', error)
+      res.status(500).json({ message: 'Error initialising order' })
     }
   },
 )
 
-// 🎯 Add an item to an existing order
+// Add an item to an existing order
 router.post(
   '/:id/items',
   checkJwt,
@@ -45,6 +50,7 @@ router.post(
       await knex('order_items').insert({
         order_id: id,
         master_catalogue_id,
+        staff_id: req.dbUser?.id, // 🎯 Track who added this item
         quantity,
         ams_price,
       })
@@ -67,9 +73,7 @@ router.delete(
     const { id } = req.params
     try {
       await knex.transaction(async (trx) => {
-        // Delete items first to respect foreign key constraints
         await trx('order_items').where('order_id', id).del()
-        // Delete the order header
         await trx('orders').where('id', id).del()
       })
       res.json({ message: 'Order and associated items nuked.' })
@@ -79,8 +83,6 @@ router.delete(
     }
   },
 )
-
-export default router
 
 router.get(
   '/:id/stats',
@@ -100,12 +102,11 @@ router.get(
 
       res.json({ total })
     } catch (error) {
-      res.status(500).json({ message: 'Error' })
+      res.status(500).json({ message: 'Error fetching stats' })
     }
   },
 )
 
-// join order_items with master_catalogue to get item details, and calculate summary stats for an order
 router.get(
   '/:id/summary',
   checkJwt,
@@ -120,38 +121,36 @@ router.get(
           'order_items.master_catalogue_id',
           'master_catalogue.id',
         )
-
-        // track who picked the item
         .leftJoin('staff', 'order_items.staff_id', 'staff.id')
         .where('order_items.order_id', id)
         .select(
           'order_items.id as item_id',
           'master_catalogue.artist',
           'master_catalogue.title',
-          'master_catalogue.ams_price',
-          'master_catalogue.category',
+          'order_items.ams_price', // Use price from time of order
+          'master_catalogue.genres', // Adjusted from 'category' to match your schema
           'order_items.quantity',
           'staff.name as staff_member',
         )
 
-      // Calculate totals
       const totalCost = summary.reduce(
         (acc, item) => acc + item.ams_price * item.quantity,
         0,
       )
-      const riskyCount = summary.filter((i) => i.category === 'risky').length
-      const totalItems = summary.length
+      const totalItems = summary.reduce((acc, item) => acc + item.quantity, 0)
 
       res.json({
         items: summary,
         stats: {
           totalCost,
           totalItems,
-          bangerRatio: totalItems > 0 ? (riskyCount / totalItems) * 100 : 0,
         },
       })
     } catch (error) {
+      console.error('🔥 Summary failed:', error)
       res.status(500).json({ message: 'Summary calculation failed' })
     }
   },
 )
+
+export default router
