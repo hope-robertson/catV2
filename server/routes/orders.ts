@@ -20,7 +20,6 @@ router.post(
         budget_limit,
         wealth_at_creation: wealth_at_creation || 'ok',
         status: 'active',
-        // 🎯 THE FIX: Use created_by_id (integer) instead of auth_id
         created_by_id: req.dbUser?.id,
         pct_customer: 0,
         pct_classics: 0,
@@ -28,7 +27,7 @@ router.post(
       })
 
       console.log(`🚢 Order #${newOrderId} initialised for ${distributor}`)
-      res.status(201).json({ id: newOrderId }) // Matches frontend expectation
+      res.status(201).json({ id: newOrderId })
     } catch (error) {
       console.error('🔥 Initialization failed:', error)
       res.status(500).json({ message: 'Error initialising order' })
@@ -50,7 +49,7 @@ router.post(
       await knex('order_items').insert({
         order_id: id,
         master_catalogue_id,
-        staff_id: req.dbUser?.id, // 🎯 Track who added this item
+        staff_id: req.dbUser?.id,
         quantity,
         ams_price,
       })
@@ -84,6 +83,7 @@ router.delete(
   },
 )
 
+// 🎯 STATS: Powering the Catalogue HUD
 router.get(
   '/:id/stats',
   checkJwt,
@@ -100,13 +100,18 @@ router.get(
         0,
       )
 
-      res.json({ total })
+      // 🎯 THE NEW ADDITION: Count total units ordered
+      const count = items.reduce((sum, item) => sum + item.quantity, 0)
+
+      res.json({ total, count })
     } catch (error) {
+      console.error('🔥 Stats fetch failed:', error)
       res.status(500).json({ message: 'Error fetching stats' })
     }
   },
 )
 
+// Summary for final review
 router.get(
   '/:id/summary',
   checkJwt,
@@ -127,8 +132,8 @@ router.get(
           'order_items.id as item_id',
           'master_catalogue.artist',
           'master_catalogue.title',
-          'order_items.ams_price', // Use price from time of order
-          'master_catalogue.genres', // Adjusted from 'category' to match your schema
+          'order_items.ams_price',
+          'master_catalogue.genres',
           'order_items.quantity',
           'staff.name as staff_member',
         )
