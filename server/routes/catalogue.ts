@@ -12,6 +12,10 @@ import { checkJwt } from '../auth0/auth.js'
 const router = Router()
 router.use(checkJwt)
 
+/**
+ * 🎯 STAGING TABLES
+ * Keeping your original naming convention exactly as per migrations.
+ */
 const STAGING_TABLES = [
   'flying_nun_records_limited_raw',
   'border_music_raw',
@@ -21,6 +25,7 @@ const STAGING_TABLES = [
   'rhythmethod_group_combined_raw',
 ]
 
+// GET full master catalogue
 router.get('/master', async (req: Request, res: Response) => {
   try {
     const results = await db.getMasterCatalogue()
@@ -30,6 +35,7 @@ router.get('/master', async (req: Request, res: Response) => {
   }
 })
 
+// SEARCH master catalogue
 router.get('/search', async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string
@@ -45,6 +51,7 @@ router.get('/search', async (req: Request, res: Response) => {
   }
 })
 
+// GET total count for stats HUD
 router.get('/master-stats', async (req: Request, res: Response) => {
   try {
     const total = await db.getMasterCount()
@@ -54,6 +61,10 @@ router.get('/master-stats', async (req: Request, res: Response) => {
   }
 })
 
+/**
+ * 🎯 IMPORT ROUTE
+ * Respects the headerRowsToSkip from distributorConfigs.
+ */
 router.post('/import', async (req: Request, res: Response) => {
   try {
     const { filename, distributor: distVal } = req.body
@@ -63,11 +74,12 @@ router.post('/import', async (req: Request, res: Response) => {
         .json({ message: 'Missing filename or distributor' })
 
     const config = getDistributorConfig(distVal)
-    if (!config) throw new Error('Config not found')
+    if (!config) throw new Error(`Config not found for ${distVal}`)
 
+    // Clear existing data for this distributor in staging
     await db.clearRawTable(config.rawTableName)
 
-    // 🎯 This handler is what reads the Excel file
+    // Run the specific excel/csv handler
     const handler = getDistributorDataHandler(config)
     const dataToInsert = await handler(path.resolve('uploads', filename), 'All')
 
@@ -87,12 +99,18 @@ router.post('/import', async (req: Request, res: Response) => {
   }
 })
 
+/**
+ * 🎯 CONSOLIDATE ROUTE
+ * Merges staged data into master and clears staging tables.
+ */
 router.post('/consolidate', async (req: Request, res: Response) => {
   try {
     const count = await db.consolidateRawDataToMaster()
+    // Wipe staging tables after successful merge
     await Promise.all(STAGING_TABLES.map((t) => db.clearRawTable(t)))
     res.status(200).json({ message: 'Consolidation complete', count })
   } catch (error: any) {
+    console.error('Consolidation Route Error:', error.message)
     res.status(500).json({ message: 'Consolidation failed' })
   }
 })
@@ -129,6 +147,8 @@ router.post('/collisions/resolve', async (req: Request, res: Response) => {
   }
 })
 
+// --- MAINTENANCE ROUTES ---
+
 router.post('/clear-staging', async (req: Request, res: Response) => {
   try {
     await Promise.all(STAGING_TABLES.map((t) => db.clearRawTable(t)))
@@ -138,14 +158,21 @@ router.post('/clear-staging', async (req: Request, res: Response) => {
   }
 })
 
-// 🎯 PREVIEW STAGING FIX
+/**
+ * 🎯 PREVIEW STAGING
+ * Shows the user the scrubbed data before they commit to Master.
+ * Includes a filter to catch any "Header Ghosts" that might slip through.
+ */
 router.get('/preview-staging', async (req: Request, res: Response) => {
   try {
     const rawData = await db.getAllRawData()
 
-    // Filter out rows that are clearly just headers (where Artist is "Artist" or Price is null)
+    // 🎯 Filter: Ensure we aren't showing the header row ("Artist", "Title", etc.)
     const cleanData = rawData.filter(
-      (row) => row.artist?.toLowerCase() !== 'artist' && row.price !== null,
+      (row) =>
+        row.artist?.toLowerCase() !== 'artist' &&
+        row.title?.toLowerCase() !== 'title' &&
+        row.price !== null,
     )
 
     const preview = cleanData.slice(0, 200).map((row) => ({
@@ -160,6 +187,7 @@ router.get('/preview-staging', async (req: Request, res: Response) => {
     }))
     res.status(200).json(preview)
   } catch (error) {
+    console.error('Preview failed:', error)
     res.status(500).json({ message: 'Preview failed' })
   }
 })

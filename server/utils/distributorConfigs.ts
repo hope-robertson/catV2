@@ -1,5 +1,3 @@
-// server/utils/distributorConfigs.ts
-
 import { DistributorConfig } from '../types/catalogue.js'
 
 export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
@@ -8,7 +6,7 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     value: 'COLLECTIVE',
     fileType: 'xlsx',
     accept: '.xlsx',
-    rawTableName: 'raw_collective',
+    rawTableName: 'collective_lp_raw',
     headerRowsToSkip: 9,
     requiresFormatFilter: true,
     origin: 'local',
@@ -17,33 +15,32 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
   },
   SOUTHBOUND: {
     name: 'Southbound',
-    value: 'SOUTHBOUND',
+    value: 'Southbound',
     fileType: 'xlsx',
     accept: '.xlsx',
-    rawTableName: 'raw_southbound',
-    headerRowsToSkip: 2, // 🎯 FIXED: Headers are Row 1, Data starts Row 2
+    rawTableName: 'southbound_instock_raw',
+    headerRowsToSkip: 2, // 🎯 Skips the metadata + the "Artist/Title" row
     origin: 'local',
     currency: 'NZD',
     defaultFreightPerItem: 1.35,
   },
   BORDER: {
     name: 'Border Music',
-    value: 'BORDER',
+    value: 'Border Music',
     fileType: 'xlsx',
     accept: '.xlsx',
-    rawTableName: 'raw_border',
-    headerRowsToSkip: 7, // 🎯 FIXED: Headers are Row 6, Data starts Row 7
+    rawTableName: 'border_music_raw',
+    headerRowsToSkip: 7, // 🎯 Skips the metadata block + the "Artist/Title" row
     origin: 'local',
     currency: 'NZD',
     defaultFreightPerItem: 2.3,
   },
-
   RHYTHMETHOD: {
     name: 'Rhythmethod',
-    value: 'RHYTHMETHOD',
+    value: 'Rhythmethod',
     fileType: 'xlsx',
     accept: '.xlsx',
-    rawTableName: 'raw_rhythmethod',
+    rawTableName: 'rhythmethod_group_combined_raw',
     headerRowsToSkip: 9,
     origin: 'local',
     currency: 'NZD',
@@ -51,52 +48,16 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
   },
   FLYING_NUN: {
     name: 'Flying Nun Records Limited',
-    value: 'FLYING_NUN',
+    value: 'Flying Nun Records Limited',
     fileType: 'xlsx',
     accept: '.xlsx',
-    rawTableName: 'raw_flying_nun',
+    rawTableName: 'flying_nun_records_limited_raw',
     headerRowsToSkip: 9,
     origin: 'local',
     currency: 'NZD',
     defaultFreightPerItem: 1.12,
   },
-  AMS: {
-    name: 'AMS',
-    value: 'AMS',
-    fileType: 'csv',
-    accept: '.csv',
-    rawTableName: 'raw_ams',
-    headerRowsToSkip: 0,
-    origin: 'import',
-    currency: 'USD',
-    defaultFreightPerItem: 11.94,
-  },
-  RECORD_CITY: {
-    name: 'Record City',
-    value: 'RECORD_CITY',
-    fileType: 'csv',
-    accept: '.csv',
-    rawTableName: 'raw_record_city',
-    headerRowsToSkip: 0,
-    origin: 'import',
-    currency: 'JPY',
-    defaultFreightPerItem: 8.0,
-  },
-  JUNO: {
-    name: 'Juno',
-    value: 'JUNO',
-    fileType: 'csv',
-    accept: '.csv',
-    rawTableName: 'raw_juno',
-    headerRowsToSkip: 0,
-    origin: 'import',
-    currency: 'GBP',
-    defaultFreightPerItem: 15.0,
-  },
 }
 
-export const getDistributorConfig = (
-  value: string,
-): DistributorConfig | undefined => {
-  return DISTRIBUTOR_CONFIGS[value.toUpperCase()]
-}
+export const getDistributorConfig = (val: string) =>
+  DISTRIBUTOR_CONFIGS[val.toUpperCase()]

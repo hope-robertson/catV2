@@ -2,7 +2,7 @@ import { DistributorConfig, DistributorHandler } from '../types/catalogue.js'
 import { processExcelRows, getWorksheet } from '../utils/excelHelpers.js'
 import { processCsvRows } from '../utils/csvHelpers.js'
 
-// 🎯 IMPORT the central configs instead of defining them here
+// 🎯 Source of truth
 import { DISTRIBUTOR_CONFIGS } from '../utils/distributorConfigs.js'
 
 import { mapBorderMusicRow } from './distributorHandlers/borderMusicHandler.js'
@@ -11,22 +11,22 @@ import { mapFlyingNunRow } from './distributorHandlers/flyingNunHandler.js'
 import { mapSouthboundRow } from './distributorHandlers/southboundHandler.js'
 import { mapRhythmethodGroupRow } from './distributorHandlers/rhythmethodGroupHandler.js'
 
-// 🎯 This function now looks at the Central Config file
 export function getDistributorConfig(
   distributorValue: string,
 ): DistributorConfig | undefined {
-  // Convert map to array to find the match
+  // 🎯 FIXED: Normalize to uppercase so "Southbound" matches "SOUTHBOUND"
+  const normalizedSearch = distributorValue.toUpperCase()
   return Object.values(DISTRIBUTOR_CONFIGS).find(
-    (config) => config.value === distributorValue,
+    (config) => config.value.toUpperCase() === normalizedSearch,
   )
 }
 
 export function getDistributorDataHandler(
   config: DistributorConfig,
 ): DistributorHandler {
-  // We use the 'value' from the config to decide which mapper to use
-  switch (config.value) {
-    case 'BORDER': // 🎯 Updated to match DISTRIBUTOR_CONFIGS keys
+  // 🎯 Use the normalized value from our central config keys
+  switch (config.value.toUpperCase()) {
+    case 'BORDER':
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
         if (!worksheet) throw new Error('Worksheet not found')
@@ -77,8 +77,6 @@ export function getDistributorDataHandler(
       }
 
     case 'RHYTHMETHOD':
-    case 'SONY': // Assuming Sony/Warner are handled by Rhythmethod logic
-    case 'WARNER':
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
         if (!worksheet) throw new Error('Worksheet not found')
