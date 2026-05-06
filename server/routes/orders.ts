@@ -5,7 +5,7 @@ import knex from '../db/connection.js'
 
 const router = express.Router()
 
-// GET /api/v1/orders (The Hub)
+// GET all active orders for the Hub
 router.get('/', checkJwt, authorizeUser, async (req: UserRequest, res) => {
   try {
     const orders = await knex('orders')
@@ -17,7 +17,7 @@ router.get('/', checkJwt, authorizeUser, async (req: UserRequest, res) => {
   }
 })
 
-// GET /api/v1/orders/:id (Single Order Header)
+// GET single order for the Catalogue context
 router.get('/:id', checkJwt, authorizeUser, async (req: UserRequest, res) => {
   try {
     const order = await knex('orders').where('id', req.params.id).first()
@@ -28,7 +28,7 @@ router.get('/:id', checkJwt, authorizeUser, async (req: UserRequest, res) => {
   }
 })
 
-// 🎯 PATCH /api/v1/orders/:id (Update Name or Budget)
+// PATCH update for Budget Slider and Session Name
 router.patch(
   '/:id',
   checkJwt,
@@ -44,12 +44,12 @@ router.patch(
       })
       res.json({ message: 'Order updated' })
     } catch (error) {
-      res.status(500).json({ message: 'Error updating order' })
+      res.status(500).json({ message: 'Update failed' })
     }
   },
 )
 
-// Create a new order
+// POST create new order
 router.post(
   '/',
   checkJwt,
@@ -57,26 +57,22 @@ router.post(
   isOrderer,
   async (req: UserRequest, res) => {
     try {
-      const { name, distributor, budget_limit, wealth_at_creation } = req.body
+      const { name, distributor, budget_limit } = req.body
       const [newOrderId] = await knex('orders').insert({
         name: name || null,
         distributor,
         budget_limit,
-        wealth_at_creation: wealth_at_creation || 'ok',
         status: 'active',
         created_by_id: req.dbUser?.id,
-        pct_customer: 0,
-        pct_classics: 0,
-        pct_risky: 0,
       })
       res.status(201).json({ id: newOrderId })
     } catch (error) {
-      res.status(500).json({ message: 'Error initialising order' })
+      res.status(500).json({ message: 'Init failed' })
     }
   },
 )
 
-// Add an item
+// POST add item to order (tracks staff_id automatically)
 router.post(
   '/:id/items',
   checkJwt,
@@ -95,32 +91,12 @@ router.post(
       })
       res.status(201).json({ message: 'Item added' })
     } catch (error) {
-      res.status(500).json({ message: 'Failed to add item' })
+      res.status(500).json({ message: 'Add failed' })
     }
   },
 )
 
-// Nuke order
-router.delete(
-  '/:id',
-  checkJwt,
-  authorizeUser,
-  isOrderer,
-  async (req: UserRequest, res) => {
-    const { id } = req.params
-    try {
-      await knex.transaction(async (trx) => {
-        await trx('order_items').where('order_id', id).del()
-        await trx('orders').where('id', id).del()
-      })
-      res.json({ message: 'Nuked.' })
-    } catch (error) {
-      res.status(500).json({ message: 'Failed to nuke' })
-    }
-  },
-)
-
-// Stats for HUD
+// GET Stats for the HUD
 router.get(
   '/:id/stats',
   checkJwt,
@@ -138,12 +114,12 @@ router.get(
       const count = items.reduce((sum, item) => sum + item.quantity, 0)
       res.json({ total, count })
     } catch (error) {
-      res.status(500).json({ message: 'Error' })
+      res.status(500).json({ message: 'Stats error' })
     }
   },
 )
 
-// Summary for Review
+// GET Summary for Review
 router.get(
   '/:id/summary',
   checkJwt,
@@ -164,7 +140,6 @@ router.get(
           'master_catalogue.artist',
           'master_catalogue.title',
           'order_items.ams_price',
-          'master_catalogue.genres',
           'order_items.quantity',
           'staff.name as staff_member',
         )
@@ -172,10 +147,12 @@ router.get(
         (acc, item) => acc + item.ams_price * item.quantity,
         0,
       )
-      const totalItems = summary.reduce((acc, item) => acc + item.quantity, 0)
-      res.json({ items: summary, stats: { totalCost, totalItems } })
+      res.json({
+        items: summary,
+        stats: { totalCost, totalItems: summary.length },
+      })
     } catch (error) {
-      res.status(500).json({ message: 'Error' })
+      res.status(500).json({ message: 'Summary error' })
     }
   },
 )

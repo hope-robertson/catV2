@@ -15,6 +15,28 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     currency: 'NZD',
     defaultFreightPerItem: 4.26,
   },
+  SOUTHBOUND: {
+    name: 'Southbound',
+    value: 'SOUTHBOUND',
+    fileType: 'xlsx',
+    accept: '.xlsx',
+    rawTableName: 'raw_southbound',
+    headerRowsToSkip: 1, // 🎯 FIXED: Headers are Row 1, Data starts Row 2
+    origin: 'local',
+    currency: 'NZD',
+    defaultFreightPerItem: 1.35,
+  },
+  BORDER: {
+    name: 'Border Music',
+    value: 'BORDER',
+    fileType: 'xlsx',
+    accept: '.xlsx',
+    rawTableName: 'raw_border',
+    headerRowsToSkip: 6, // 🎯 FIXED: Headers are Row 6, Data starts Row 7
+    origin: 'local',
+    currency: 'NZD',
+    defaultFreightPerItem: 2.3,
+  },
 
   RHYTHMETHOD: {
     name: 'Rhythmethod',

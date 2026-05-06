@@ -9,7 +9,7 @@ import request from 'superagent'
 export default function CatalogueList() {
   const { id } = useParams()
   const { getAccessTokenSilently } = useAuth0()
-  const { results, loading, performSearch } = useCatalogue()
+  const { results, performSearch } = useCatalogue()
 
   const [distFilter, setDistFilter] = useState('All')
   const [quantities, setQuantities] = useState<{ [key: number]: number }>({})
@@ -18,7 +18,6 @@ export default function CatalogueList() {
   const [budgetLimit, setBudgetLimit] = useState(0)
   const [sessionName, setSessionName] = useState('')
   const [sortOrder, setSortOrder] = useState<'low' | 'high'>('low')
-  const [searchKey, setSearchKey] = useState(0)
 
   const syncOrderContext = async () => {
     if (!id) return
@@ -27,14 +26,12 @@ export default function CatalogueList() {
       const orderRes = await request
         .get(`/api/v1/orders/${id}`)
         .set('Authorization', `Bearer ${token}`)
+      setBudgetLimit(orderRes.body.budget_limit)
+      setSessionName(orderRes.body.name)
+      setDistFilter(orderRes.body.distributor)
 
-      const order = orderRes.body
-      setBudgetLimit(order.budget_limit)
-      setSessionName(order.name)
-      setDistFilter(order.distributor)
-
-      // 🎯 AUTO-FILTER: Perform the search immediately
-      performSearch('', order.distributor)
+      // Auto-filter search
+      performSearch('', orderRes.body.distributor)
 
       const statsRes = await request
         .get(`/api/v1/orders/${id}/stats`)
@@ -69,13 +66,11 @@ export default function CatalogueList() {
     }
   }
 
-  // 🎯 SORTING LOGIC: Fix for "possibly null" error
   const processedResults = [...results]
     .filter(
       (item) => distFilter === 'All' || item.source_distributor === distFilter,
     )
     .sort((a, b) => {
-      // 🛡️ Fallback to 0 if price is null
       const priceA = a.price ?? 0
       const priceB = b.price ?? 0
       return sortOrder === 'low' ? priceA - priceB : priceB - priceA
@@ -86,15 +81,13 @@ export default function CatalogueList() {
 
   return (
     <div className="relative space-y-6 pb-20 pr-72">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight">
-            {sessionName || `Session #${id}`}
-          </h2>
-          <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
-            {distFilter} Records
-          </p>
-        </div>
+      <div>
+        <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight">
+          {sessionName || `Session #${id}`}
+        </h2>
+        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
+          {distFilter} Records
+        </p>
       </div>
 
       {/* 🚀 TOP RIGHT HUD */}
@@ -103,7 +96,7 @@ export default function CatalogueList() {
           <div className="space-y-4">
             <div>
               <p className="text-[9px] font-black uppercase opacity-50 tracking-widest">
-                Session Spend
+                Spend
               </p>
               <p className="text-xl font-black">{formatCurrency(dbTotal)}</p>
             </div>
@@ -116,7 +109,7 @@ export default function CatalogueList() {
             <div className="flex justify-between items-end">
               <div>
                 <p className="text-[9px] font-black uppercase opacity-50 tracking-widest">
-                  Remaining
+                  Available
                 </p>
                 <p
                   className={`text-sm font-bold ${remaining < 0 ? 'text-red-400' : 'text-green-400'}`}
@@ -135,37 +128,29 @@ export default function CatalogueList() {
         </div>
       </div>
 
-      {/* 🔍 CONTROL BAR */}
       <div className="bg-white p-4 rounded-xl shadow-md border-2 border-blue-50 flex gap-4 items-center">
         <div className="flex-1">
-          <SearchBar
-            key={searchKey}
-            onSearch={(query) => performSearch(query, distFilter)}
-          />
+          <SearchBar onSearch={(q) => performSearch(q, distFilter)} />
         </div>
         <button
           onClick={() => setSortOrder(sortOrder === 'low' ? 'high' : 'low')}
-          className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-[10px] font-black uppercase transition-colors"
+          className="px-4 py-2 bg-gray-100 rounded-lg text-[10px] font-black uppercase"
         >
           Price: {sortOrder === 'low' ? 'Low → High' : 'High → Low'}
         </button>
       </div>
 
-      {/* 📦 RESULTS TABLE */}
-      <div className="bg-white shadow-xl rounded-2xl overflow-hidden border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200 text-left">
+      <div className="bg-white shadow-xl rounded-2xl overflow-hidden border">
+        <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest">
+              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase text-left">
                 Artist / Title
               </th>
-              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-right">
+              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase text-right">
                 Wholesale
               </th>
-              <th className="px-6 py-4 text-[10px] font-black text-blue-600 uppercase tracking-widest text-right">
-                Retail
-              </th>
-              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest text-center">
+              <th className="px-6 py-4 text-[10px] font-black text-gray-400 uppercase text-center">
                 Action
               </th>
             </tr>
@@ -174,23 +159,16 @@ export default function CatalogueList() {
             {processedResults.map((item) => (
               <tr
                 key={item.id}
-                className="hover:bg-blue-50/30 transition-colors group"
+                className="hover:bg-blue-50/30 transition-colors"
               >
                 <td className="px-6 py-4">
                   <p className="text-sm font-bold text-gray-900 uppercase leading-none">
                     {item.artist || 'VARIOUS'}
                   </p>
-                  <p className="text-[10px] text-gray-400 font-medium mt-1">
-                    {item.title}
-                  </p>
+                  <p className="text-[10px] text-gray-400 mt-1">{item.title}</p>
                 </td>
-                <td className="px-6 py-4 text-right text-xs text-gray-400 italic font-mono">
+                <td className="px-6 py-4 text-right text-xs font-mono">
                   ${(item.price ?? 0).toFixed(2)}
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <span className="text-sm font-black text-green-700 bg-green-50 px-2 py-1 rounded">
-                    {formatCurrency(calculateRetail(item.price ?? 0))}
-                  </span>
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center justify-center gap-2">
@@ -204,11 +182,11 @@ export default function CatalogueList() {
                           [item.id]: parseInt(e.target.value),
                         })
                       }
-                      className="w-12 p-2 border border-gray-200 rounded-lg text-xs font-black text-center outline-none focus:border-blue-500"
+                      className="w-12 p-2 border border-gray-200 rounded-lg text-xs font-black text-center"
                     />
                     <button
                       onClick={() => handleAddToOrder(item)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white text-[9px] font-black px-4 py-2 rounded-lg uppercase transition-all shadow-sm active:scale-95"
+                      className="bg-blue-600 text-white text-[9px] font-black px-4 py-2 rounded-lg uppercase shadow-sm active:scale-95"
                     >
                       + Add
                     </button>
