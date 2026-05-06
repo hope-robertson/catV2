@@ -35,10 +35,10 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     fileType: 'xlsx',
     accept: '.xlsx',
     rawTableName: 'raw_border',
-    headerRowsToSkip: 9,
+    headerRowsToSkip: 11, // Increased to account for the metadata block
     origin: 'local',
     currency: 'NZD',
-    defaultFreightPerItem: 2.30,
+    defaultFreightPerItem: 2.3,
   },
   RHYTHMETHOD: {
     name: 'Rhythmethod',
@@ -82,7 +82,7 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     headerRowsToSkip: 0,
     origin: 'import',
     currency: 'JPY',
-    defaultFreightPerItem: 8.00, // Estimated baseline
+    defaultFreightPerItem: 8.0, // Estimated baseline
   },
   JUNO: {
     name: 'Juno',
@@ -93,13 +93,15 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     headerRowsToSkip: 0,
     origin: 'import',
     currency: 'GBP',
-    defaultFreightPerItem: 15.00, // Estimated higher due to poor margins
+    defaultFreightPerItem: 15.0, // Estimated higher due to poor margins
   },
 }
 
 /**
  * Helper to get config by value/key
  */
-export const getDistributorConfig = (value: string): DistributorConfig | undefined => {
+export const getDistributorConfig = (
+  value: string,
+): DistributorConfig | undefined => {
   return DISTRIBUTOR_CONFIGS[value.toUpperCase()]
 }
