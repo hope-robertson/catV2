@@ -21,7 +21,7 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     fileType: 'xlsx',
     accept: '.xlsx',
     rawTableName: 'raw_southbound',
-    headerRowsToSkip: 1, // 🎯 FIXED: Headers are Row 1, Data starts Row 2
+    headerRowsToSkip: 2, // 🎯 FIXED: Headers are Row 1, Data starts Row 2
     origin: 'local',
     currency: 'NZD',
     defaultFreightPerItem: 1.35,
@@ -32,7 +32,7 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     fileType: 'xlsx',
     accept: '.xlsx',
     rawTableName: 'raw_border',
-    headerRowsToSkip: 6, // 🎯 FIXED: Headers are Row 6, Data starts Row 7
+    headerRowsToSkip: 7, // 🎯 FIXED: Headers are Row 6, Data starts Row 7
     origin: 'local',
     currency: 'NZD',
     defaultFreightPerItem: 2.3,

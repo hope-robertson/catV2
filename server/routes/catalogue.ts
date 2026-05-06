@@ -35,17 +35,12 @@ router.get('/search', async (req: Request, res: Response) => {
     const query = req.query.q as string
     const filter = (req.query.filter as string) || 'all'
 
-    console.log(`[Route] Incoming Search -> q: "${query}", filter: "${filter}"`)
-
     if (!query)
       return res.status(400).json({ message: 'Search query required' })
 
     const results = await db.searchMasterCatalogue(query, filter)
-    console.log(`[Route] Found ${results.length} matches in DB`)
-
     res.status(200).json(results)
   } catch (error) {
-    console.error('[Route Error] Search failed:', error)
     res.status(500).json({ message: 'Search failed' })
   }
 })
@@ -71,8 +66,11 @@ router.post('/import', async (req: Request, res: Response) => {
     if (!config) throw new Error('Config not found')
 
     await db.clearRawTable(config.rawTableName)
+
+    // 🎯 This handler is what reads the Excel file
     const handler = getDistributorDataHandler(config)
     const dataToInsert = await handler(path.resolve('uploads', filename), 'All')
+
     const insertedCount = await db.importCatalogueData(
       config.rawTableName,
       dataToInsert,
@@ -84,6 +82,7 @@ router.post('/import', async (req: Request, res: Response) => {
       distributor: config.name,
     })
   } catch (error: any) {
+    console.error('Import Error:', error)
     res.status(500).json({ message: 'Import failed' })
   }
 })
@@ -98,7 +97,7 @@ router.post('/consolidate', async (req: Request, res: Response) => {
   }
 })
 
-// --- NEW COLLISION ROUTES ---
+// --- COLLISION ROUTES ---
 
 router.get('/collisions', async (req: Request, res: Response) => {
   try {
@@ -115,7 +114,6 @@ router.post('/collisions/resolve', async (req: Request, res: Response) => {
   try {
     const { id, action } = req.body
     const item = await knex('master_collisions').where({ id }).first()
-
     if (!item)
       return res.status(404).json({ message: 'Collision item not found' })
 
@@ -131,8 +129,6 @@ router.post('/collisions/resolve', async (req: Request, res: Response) => {
   }
 })
 
-// --- END COLLISION ROUTES ---
-
 router.post('/clear-staging', async (req: Request, res: Response) => {
   try {
     await Promise.all(STAGING_TABLES.map((t) => db.clearRawTable(t)))
@@ -142,10 +138,17 @@ router.post('/clear-staging', async (req: Request, res: Response) => {
   }
 })
 
+// 🎯 PREVIEW STAGING FIX
 router.get('/preview-staging', async (req: Request, res: Response) => {
   try {
     const rawData = await db.getAllRawData()
-    const preview = rawData.slice(0, 200).map((row) => ({
+
+    // Filter out rows that are clearly just headers (where Artist is "Artist" or Price is null)
+    const cleanData = rawData.filter(
+      (row) => row.artist?.toLowerCase() !== 'artist' && row.price !== null,
+    )
+
+    const preview = cleanData.slice(0, 200).map((row) => ({
       original: { artist: row.artist, title: row.title },
       scrubbed: {
         artist: row.artist,
