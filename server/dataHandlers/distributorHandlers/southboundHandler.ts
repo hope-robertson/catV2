@@ -1,7 +1,7 @@
-import exceljs from 'exceljs'
+import { Row } from 'exceljs'
 import { CatalogueRow } from '../../types/catalogue.js'
 
-export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
+export function mapSouthboundRow(row: Row): CatalogueRow {
   const getVal = (col: number) => row.getCell(col).value
   const getText = (col: number) => getVal(col)?.toString().trim() || null
 
@@ -17,21 +17,18 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
     return isNaN(parsed) ? null : parsed
   }
 
-  // Column Map: 1:Cat, 2:Description (Source), 5:Price, 6:Format, 8:Label, 9:Genre
+  // 🎯 NEW SOUTHBOUND LAYOUT:
+  // 1:Cat No, 2:Description, 3:Dealer (Price), 4:Format, 5:BarCode, 6:Label, 7:Genre
   const rawDescription = getText(2) || ''
-  const priceValue = getPrice(5)
-  const formatValue = getText(6)
-  const labelValue = getText(8)
-  const genreValue = getText(9)
+  const priceValue = getPrice(3)
+  const formatValue = getText(4)
+  const labelValue = getText(6)
+  const genreValue = getText(7)
+  const barcodeValue = getText(5)
 
   let finalArtist = null
   let finalTitle = rawDescription
 
-  /**
-   * FLEXIBLE SPLITTER
-   * Splits on " - " OR " : "
-   * The \s* ensures it handles varying spaces around the separator
-   */
   const splitRegex = /\s*[:\-–—]\s+/
   const match = rawDescription.match(splitRegex)
 
@@ -39,33 +36,18 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
     finalArtist = rawDescription.substring(0, match.index).trim()
     finalTitle = rawDescription.substring(match.index + match[0].length).trim()
   } else {
-    // Handle record sleeves and cleaning supplies
     const d = rawDescription.toLowerCase()
     const isAccessory =
-      d.includes('sleeves') ||
-      d.includes('cleaning') ||
-      d.includes('brush') ||
-      d.includes('cloth') ||
-      d.includes('stylus')
-
+      d.includes('sleeves') || d.includes('cleaning') || d.includes('brush')
     if (isAccessory) finalArtist = labelValue || 'Supplies'
     else finalArtist = null
   }
 
-  // Strict Safe Chop: Only remove if title ends with exactly " [Format]"
   if (formatValue && finalTitle.endsWith(` ${formatValue}`)) {
     finalTitle = finalTitle
       .substring(0, finalTitle.length - formatValue.length)
       .trim()
   }
-
-  // Final Encoding Cleanup
-  finalTitle = finalTitle
-    .replace(/¬†/g, ' ')
-    .replace(/¬∫/g, 'º')
-    .replace(/√£/g, 'ã')
-    .replace(/‚Äù/g, '"')
-    .replace(/‚Äì/g, '-')
 
   return {
     imported_at: new Date(),
@@ -73,7 +55,7 @@ export function mapSouthboundRow(row: exceljs.Row): CatalogueRow {
     artist: finalArtist,
     title: finalTitle,
     catalogue_number: getText(1),
-    barcode: getText(7),
+    barcode: barcodeValue,
     format: formatValue || '',
     price: priceValue,
     is_nz_music: false,

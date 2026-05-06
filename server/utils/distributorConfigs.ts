@@ -1,10 +1,7 @@
+// server/utils/distributorConfigs.ts
+
 import { DistributorConfig } from '../types/catalogue.js'
 
-/**
- * Master Distributor Configuration
- * Maps technical file-import settings to procurement & pricing logic.
- * Values derived from the Record Order Calculator spreadsheet.
- */
 export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
   COLLECTIVE: {
     name: 'Collective (LP)',
@@ -12,34 +9,13 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     fileType: 'xlsx',
     accept: '.xlsx',
     rawTableName: 'raw_collective',
-    headerRowsToSkip: 9, // Skips the spreadsheet header metadata
+    headerRowsToSkip: 9,
     requiresFormatFilter: true,
     origin: 'local',
     currency: 'NZD',
     defaultFreightPerItem: 4.26,
   },
-  SOUTHBOUND: {
-    name: 'Southbound',
-    value: 'SOUTHBOUND',
-    fileType: 'xlsx',
-    accept: '.xlsx',
-    rawTableName: 'raw_southbound',
-    headerRowsToSkip: 9,
-    origin: 'local',
-    currency: 'NZD',
-    defaultFreightPerItem: 1.35,
-  },
-  BORDER: {
-    name: 'Border Music',
-    value: 'BORDER',
-    fileType: 'xlsx',
-    accept: '.xlsx',
-    rawTableName: 'raw_border',
-    headerRowsToSkip: 11, // Increased to account for the metadata block
-    origin: 'local',
-    currency: 'NZD',
-    defaultFreightPerItem: 2.3,
-  },
+
   RHYTHMETHOD: {
     name: 'Rhythmethod',
     value: 'RHYTHMETHOD',
@@ -82,7 +58,7 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     headerRowsToSkip: 0,
     origin: 'import',
     currency: 'JPY',
-    defaultFreightPerItem: 8.0, // Estimated baseline
+    defaultFreightPerItem: 8.0,
   },
   JUNO: {
     name: 'Juno',
@@ -93,13 +69,10 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     headerRowsToSkip: 0,
     origin: 'import',
     currency: 'GBP',
-    defaultFreightPerItem: 15.0, // Estimated higher due to poor margins
+    defaultFreightPerItem: 15.0,
   },
 }
 
-/**
- * Helper to get config by value/key
- */
 export const getDistributorConfig = (
   value: string,
 ): DistributorConfig | undefined => {
