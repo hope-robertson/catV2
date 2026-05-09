@@ -46,14 +46,36 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     currency: 'NZD',
     defaultFreightPerItem: 4.52,
   },
+  // 🎯 ADDED: Specific handling for Sony/Warner to match frontend strings
+  'SONY MUSIC': {
+    name: 'Sony Music',
+    value: 'Sony Music',
+    fileType: 'xlsx',
+    accept: '.xlsx',
+    rawTableName: 'rhythmethod_group_combined_raw',
+    headerRowsToSkip: 9,
+    origin: 'local',
+    currency: 'NZD',
+    defaultFreightPerItem: 4.52,
+  },
+  'WARNER MUSIC': {
+    name: 'Warner Music',
+    value: 'Warner Music',
+    fileType: 'xlsx',
+    accept: '.xlsx',
+    rawTableName: 'rhythmethod_group_combined_raw',
+    headerRowsToSkip: 9,
+    origin: 'local',
+    currency: 'NZD',
+    defaultFreightPerItem: 4.52,
+  },
   UNIVERSAL: {
-    // 🎯 ADDED
     name: 'Universal Music',
     value: 'UNIVERSAL',
     fileType: 'xlsx',
     accept: '.xlsx',
     rawTableName: 'universal_music_raw',
-    headerRowsToSkip: 1, // Skips just the header row
+    headerRowsToSkip: 1,
     origin: 'local',
     currency: 'NZD',
     defaultFreightPerItem: 2.0,

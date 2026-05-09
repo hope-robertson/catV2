@@ -1,9 +1,7 @@
 import knex from './connection.js'
 import { CatalogueRow, MasterCatalogueRow } from '../types/catalogue.js'
-// 🎯 Import the Source of Truth for table names
 import { DISTRIBUTOR_CONFIGS } from '../utils/distributorConfigs.js'
 
-// 🎯 Helper to get the list of active staging tables from config
 const getStagingTables = () =>
   Object.values(DISTRIBUTOR_CONFIGS).map((c) => c.rawTableName)
 
@@ -16,34 +14,28 @@ export async function importCatalogueData(
   tableName: string,
   data: CatalogueRow[],
 ): Promise<number> {
-  try {
-    await knex(tableName).del()
-    if (data.length > 0) {
-      // 🎯 Use batchInsert to handle large files safely
-      await knex.batchInsert(tableName, data, 500)
-      return data.length
-    }
-    return 0
-  } catch (error) {
-    throw error
+  // Clearing the table for a fresh import
+  await knex(tableName).del()
+  if (data.length > 0) {
+    await knex.batchInsert(tableName, data, 500)
+    return data.length
   }
+  return 0
 }
 
 export async function consolidateRawDataToMaster(): Promise<number> {
   const trx = await knex.transaction()
 
   try {
-    console.log('[DB] Starting Incremental Consolidation...')
+    console.log('[DB] Starting Consolidation...')
     const rawTableNames = getStagingTables()
 
     const uniqueItems = new Map<string, any>()
     const collisions: any[] = []
     const itemsToInsert: any[] = []
-
-    // 🎯 Local track to avoid duplicate collisions in the same batch
     const seenCollisions = new Set<string>()
 
-    // Load current master to check for duplicates
+    // 1. Load current master to check for duplicates
     const existingMaster = await trx('master_catalogue').select(
       'source_distributor',
       'catalogue_number',
@@ -57,15 +49,16 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       uniqueItems.set(key, true)
     }
 
+    // 2. Process Raw Tables
     for (const tableName of rawTableNames) {
       const exists = await trx.schema.hasTable(tableName)
       if (!exists) continue
 
       const rawData = await trx(tableName).select('*')
-      if (rawData.length === 0) continue
 
       for (const item of rawData) {
-        const masterItem = {
+        // 🎯 MATCHES SCHEMA EXACTLY (No extra columns)
+        const baseData = {
           artist: item.artist,
           title: item.title,
           barcode: item.barcode,
@@ -75,23 +68,20 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           is_nz_music: !!item.is_nz_music,
           label: item.label,
           source_distributor: item.distributor,
-          last_imported_at: new Date(),
         }
 
         const key =
-          `${masterItem.source_distributor}-${masterItem.catalogue_number}-${masterItem.title}-${masterItem.format}`.toLowerCase()
-
-        // 🎯 Collision key to prevent duplicates within the collision list itself
+          `${baseData.source_distributor}-${baseData.catalogue_number}-${baseData.title}-${baseData.format}`.toLowerCase()
         const collisionKey =
-          `${masterItem.barcode}-${masterItem.catalogue_number}`.toLowerCase()
+          `${baseData.barcode}-${baseData.catalogue_number}`.toLowerCase()
 
         if (!uniqueItems.has(key)) {
           uniqueItems.set(key, true)
-          itemsToInsert.push(masterItem)
+          itemsToInsert.push(baseData) // 🎯 No last_imported_at
         } else if (!seenCollisions.has(collisionKey)) {
           seenCollisions.add(collisionKey)
           collisions.push({
-            ...masterItem,
+            ...baseData,
             collision_reason: 'Duplicate of Existing Master or Batch',
             source_table: tableName,
           })
@@ -99,33 +89,23 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       }
     }
 
-    // 🎯 INSERT NEW ITEMS (Chunked to prevent Union All errors)
+    // 3. Insert New Items to Master
     if (itemsToInsert.length > 0) {
       await trx.batchInsert('master_catalogue', itemsToInsert, 100)
     }
 
-    // 🎯 INSERT COLLISIONS (Chunked + Conflict Protection)
+    // 4. Update Collisions (Wipe and Refresh)
+    await trx('master_collisions').del()
     if (collisions.length > 0) {
-      const chunkSize = 100
+      const chunkSize = 50
       for (let i = 0; i < collisions.length; i += chunkSize) {
-        const chunk = collisions.slice(i, i + chunkSize)
-
-        await trx('master_collisions')
-          .insert(chunk)
-          .onConflict(['barcode', 'catalogue_number'])
-          .ignore()
+        await trx('master_collisions').insert(
+          collisions.slice(i, i + chunkSize),
+        )
       }
     }
 
     await trx.commit()
-
-    const finalCount = await getMasterCount()
-    console.log(`--- Consolidation Report ---`)
-    console.log(`New Items Added:   ${itemsToInsert.length}`)
-    console.log(`Collisions Found:  ${collisions.length}`)
-    console.log(`Total Master Size: ${finalCount}`)
-    console.log(`----------------------------`)
-
     return itemsToInsert.length
   } catch (error) {
     await trx.rollback()
@@ -153,21 +133,15 @@ export async function getMasterCatalogue(limit = 200) {
     .limit(limit)
 }
 
-export async function searchMasterCatalogue(
-  query: string,
-  filter: string,
-): Promise<MasterCatalogueRow[]> {
-  return knex<MasterCatalogueRow>('master_catalogue')
+export async function searchMasterCatalogue(query: string, filter: string) {
+  const term = `%${query}%`
+  return knex('master_catalogue')
     .select('*')
     .where((builder) => {
-      const term = `%${query}%`
-      if (filter === 'artist') {
-        builder.where('artist', 'like', term)
-      } else if (filter === 'title') {
-        builder.where('title', 'like', term)
-      } else if (filter === 'barcode') {
-        builder.where('barcode', 'like', term)
-      } else {
+      if (filter === 'artist') builder.where('artist', 'like', term)
+      else if (filter === 'title') builder.where('title', 'like', term)
+      else if (filter === 'barcode') builder.where('barcode', 'like', term)
+      else {
         builder
           .where('artist', 'like', term)
           .orWhere('title', 'like', term)
@@ -183,11 +157,11 @@ export async function searchMasterCatalogue(
     .limit(200)
 }
 
-export async function clearRawTable(tableName: string): Promise<void> {
+export async function clearRawTable(tableName: string) {
   await knex(tableName).del()
 }
 
-export async function getAllRawData(): Promise<any[]> {
+export async function getAllRawData() {
   const tables = getStagingTables()
   const results = await Promise.all(
     tables.map(async (t) => {

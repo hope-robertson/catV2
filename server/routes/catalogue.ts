@@ -13,15 +13,17 @@ const router = Router()
 router.use(checkJwt)
 
 /**
- * Keeping your original naming convention exactly as per migrations.
+ * 🎯 UPDATED STAGING TABLES
+ * Removed: flying_nun_records_limited_raw (Decommissioned)
+ * Added: universal_music_raw
  */
 const STAGING_TABLES = [
-  'flying_nun_records_limited_raw',
   'border_music_raw',
   'collective_lp_raw',
   'collective_cd_raw',
   'southbound_instock_raw',
   'rhythmethod_group_combined_raw',
+  'universal_music_raw',
 ]
 
 // GET full master catalogue
@@ -62,7 +64,6 @@ router.get('/master-stats', async (req: Request, res: Response) => {
 
 /**
  * 🎯 IMPORT ROUTE
- * Respects the headerRowsToSkip from distributorConfigs.
  */
 router.post('/import', async (req: Request, res: Response) => {
   try {
@@ -158,14 +159,12 @@ router.post('/clear-staging', async (req: Request, res: Response) => {
 
 /**
  * 🎯 PREVIEW STAGING
- * Shows the user the scrubbed data before they commit to Master.
- * Includes a filter to catch any "Header Ghosts" that might slip through.
  */
 router.get('/preview-staging', async (req: Request, res: Response) => {
   try {
     const rawData = await db.getAllRawData()
 
-    // 🎯 Filter: Ensure we aren't showing the header row ("Artist", "Title", etc.)
+    // 🎯 Filter: Ensure we aren't showing the header row
     const cleanData = rawData.filter(
       (row) =>
         row.artist?.toLowerCase() !== 'artist' &&
