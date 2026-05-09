@@ -19,7 +19,7 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     fileType: 'xlsx',
     accept: '.xlsx',
     rawTableName: 'southbound_instock_raw',
-    headerRowsToSkip: 2, // 🎯 Skips the metadata + the "Artist/Title" row
+    headerRowsToSkip: 2,
     origin: 'local',
     currency: 'NZD',
     defaultFreightPerItem: 1.35,
@@ -30,7 +30,7 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     fileType: 'xlsx',
     accept: '.xlsx',
     rawTableName: 'border_music_raw',
-    headerRowsToSkip: 7, // 🎯 Skips the metadata block + the "Artist/Title" row
+    headerRowsToSkip: 7,
     origin: 'local',
     currency: 'NZD',
     defaultFreightPerItem: 2.3,
@@ -46,16 +46,17 @@ export const DISTRIBUTOR_CONFIGS: Record<string, DistributorConfig> = {
     currency: 'NZD',
     defaultFreightPerItem: 4.52,
   },
-  FLYING_NUN: {
-    name: 'Flying Nun Records Limited',
-    value: 'Flying Nun Records Limited',
+  UNIVERSAL: {
+    // 🎯 ADDED
+    name: 'Universal Music',
+    value: 'UNIVERSAL',
     fileType: 'xlsx',
     accept: '.xlsx',
-    rawTableName: 'flying_nun_records_limited_raw',
-    headerRowsToSkip: 9,
+    rawTableName: 'universal_music_raw',
+    headerRowsToSkip: 1, // Skips just the header row
     origin: 'local',
     currency: 'NZD',
-    defaultFreightPerItem: 1.12,
+    defaultFreightPerItem: 2.0,
   },
 }
 

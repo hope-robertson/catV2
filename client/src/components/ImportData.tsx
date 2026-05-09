@@ -16,9 +16,10 @@ export default function ImportData() {
     dist: string | null
   }>({ count: null, dist: null })
 
+  // 🎯 UPDATED: Removed Flying Nun, Added Universal Music
   const distributors = [
     { name: 'Southbound In-stock', value: 'Southbound' },
-    { name: 'Flying Nun Records', value: 'Flying Nun Records Limited' },
+    { name: 'Universal Music', value: 'UNIVERSAL' },
     { name: 'Border Music', value: 'Border Music' },
     { name: 'Collective LP', value: 'Collective (LP)' },
     { name: 'Collective CD', value: 'Collective (CD)' },
@@ -37,7 +38,7 @@ export default function ImportData() {
       if (!res.ok) throw new Error('Failed to fetch stats')
 
       const data = await res.json()
-      setMasterTotal(data.total ?? 0) // 👈 Ensure we fallback to 0
+      setMasterTotal(data.total ?? 0)
 
       const colRes = await fetch('/api/v1/catalogue/collisions', {
         headers: { Authorization: `Bearer ${token}` },
@@ -46,7 +47,7 @@ export default function ImportData() {
       setCollisionCount(collisions.length || 0)
     } catch (err) {
       console.error('📊 Dashboard Sync Error:', err)
-      setMasterTotal(0) // 👈 Reset to 0 on error to prevent UI crash
+      setMasterTotal(0)
     }
   }
 
@@ -160,7 +161,6 @@ export default function ImportData() {
             Total Master Items
           </span>
           <span className="bg-green-600 px-4 py-1 rounded-full text-lg font-mono font-bold">
-            {/* 🛡️ SAFETY FIX: Optional chaining ensures no crash if masterTotal is undefined */}
             {masterTotal?.toLocaleString() ?? '0'}
           </span>
         </div>

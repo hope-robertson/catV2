@@ -2,31 +2,34 @@ import { DistributorConfig, DistributorHandler } from '../types/catalogue.js'
 import { processExcelRows, getWorksheet } from '../utils/excelHelpers.js'
 import { processCsvRows } from '../utils/csvHelpers.js'
 
-// 🎯 Source of truth
 import { DISTRIBUTOR_CONFIGS } from '../utils/distributorConfigs.js'
 
 import { mapBorderMusicRow } from './distributorHandlers/borderMusicHandler.js'
 import { mapCollectiveRow } from './distributorHandlers/collectiveHandler.js'
-import { mapFlyingNunRow } from './distributorHandlers/flyingNunHandler.js'
 import { mapSouthboundRow } from './distributorHandlers/southboundHandler.js'
 import { mapRhythmethodGroupRow } from './distributorHandlers/rhythmethodGroupHandler.js'
+// 🎯 ADDED: Import your brand new Universal handler
+import { mapUniversalRow } from './distributorHandlers/universalHandler.js'
 
 export function getDistributorConfig(
   distributorValue: string,
 ): DistributorConfig | undefined {
-  // 🎯 FIXED: Normalize to uppercase so "Southbound" matches "SOUTHBOUND"
   const normalizedSearch = distributorValue.toUpperCase()
   return Object.values(DISTRIBUTOR_CONFIGS).find(
-    (config) => config.value.toUpperCase() === normalizedSearch,
+    (config) =>
+      config.value.toUpperCase() === normalizedSearch ||
+      config.name.toUpperCase() === normalizedSearch,
   )
 }
 
 export function getDistributorDataHandler(
   config: DistributorConfig,
 ): DistributorHandler {
-  // 🎯 Use the normalized value from our central config keys
-  switch (config.value.toUpperCase()) {
+  const distributorKey = config.value.toUpperCase()
+
+  switch (distributorKey) {
     case 'BORDER':
+    case 'BORDER MUSIC':
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
         if (!worksheet) throw new Error('Worksheet not found')
@@ -34,17 +37,6 @@ export function getDistributorDataHandler(
           worksheet,
           config.headerRowsToSkip,
           mapBorderMusicRow,
-          config.value,
-          formatType,
-        )
-      }
-
-    case 'FLYING_NUN':
-      return async (filePath, formatType) => {
-        return processCsvRows(
-          filePath,
-          config.headerRowsToSkip,
-          mapFlyingNunRow,
           config.value,
           formatType,
         )
@@ -64,6 +56,8 @@ export function getDistributorDataHandler(
       }
 
     case 'COLLECTIVE':
+    case 'COLLECTIVE (LP)':
+    case 'COLLECTIVE (CD)':
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
         if (!worksheet) throw new Error('Worksheet not found')
@@ -76,7 +70,25 @@ export function getDistributorDataHandler(
         )
       }
 
+    // 🎯 ADDED: Universal now has its own separate block using mapUniversalRow
+    case 'UNIVERSAL':
+      return async (filePath, formatType) => {
+        const worksheet = await getWorksheet(filePath)
+        if (!worksheet) throw new Error('Worksheet not found')
+        return processExcelRows(
+          worksheet,
+          config.headerRowsToSkip,
+          mapUniversalRow,
+          config.value,
+          formatType,
+        )
+      }
+
     case 'RHYTHMETHOD':
+    case 'SONY MUSIC':
+    case 'WARNER MUSIC':
+    case 'SONY':
+    case 'WARNER':
       return async (filePath, formatType) => {
         const worksheet = await getWorksheet(filePath)
         if (!worksheet) throw new Error('Worksheet not found')
