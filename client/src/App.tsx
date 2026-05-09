@@ -41,6 +41,15 @@ function App() {
             >
               Import
             </Link>
+
+            {/* 🎯 RESTORED: Master Catalogue Link */}
+            <Link
+              to="/catalogue"
+              className="text-blue-600 hover:text-blue-800 font-black text-xs uppercase tracking-widest"
+            >
+              Catalogue
+            </Link>
+
             <Link
               to="/orders"
               className="text-blue-600 hover:text-blue-800 font-black text-xs uppercase tracking-widest"
@@ -111,10 +120,13 @@ function App() {
         <main className="max-w-5xl mx-auto">
           <Routes>
             <Route path="/" element={<ImportData />} />
+
+            {/* 🎯 RESTORED: Master Catalogue Route */}
+            <Route path="/catalogue" element={<CatalogueList />} />
+
             <Route path="/orders" element={<ActiveOrders />} />
             <Route path="/orders/:id/catalogue" element={<CatalogueList />} />
 
-            {/* 🎯 Updated Guarded Route */}
             <Route
               path="/orders/:id/review"
               element={isTrusted ? <OrderReview /> : <Navigate to="/orders" />}
