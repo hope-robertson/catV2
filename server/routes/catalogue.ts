@@ -13,7 +13,6 @@ const router = Router()
 router.use(checkJwt)
 
 /**
- * 🎯 STAGING TABLES
  * Keeping your original naming convention exactly as per migrations.
  */
 const STAGING_TABLES = [
@@ -100,7 +99,6 @@ router.post('/import', async (req: Request, res: Response) => {
 })
 
 /**
- * 🎯 CONSOLIDATE ROUTE
  * Merges staged data into master and clears staging tables.
  */
 router.post('/consolidate', async (req: Request, res: Response) => {
