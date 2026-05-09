@@ -14,7 +14,6 @@ export async function importCatalogueData(
   tableName: string,
   data: CatalogueRow[],
 ): Promise<number> {
-  // Clearing the table for a fresh import
   await knex(tableName).del()
   if (data.length > 0) {
     await knex.batchInsert(tableName, data, 500)
@@ -25,17 +24,14 @@ export async function importCatalogueData(
 
 export async function consolidateRawDataToMaster(): Promise<number> {
   const trx = await knex.transaction()
-
   try {
     console.log('[DB] Starting Consolidation...')
     const rawTableNames = getStagingTables()
-
     const uniqueItems = new Map<string, any>()
     const collisions: any[] = []
     const itemsToInsert: any[] = []
     const seenCollisions = new Set<string>()
 
-    // 1. Load current master to check for duplicates
     const existingMaster = await trx('master_catalogue').select(
       'source_distributor',
       'catalogue_number',
@@ -49,15 +45,11 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       uniqueItems.set(key, true)
     }
 
-    // 2. Process Raw Tables
     for (const tableName of rawTableNames) {
       const exists = await trx.schema.hasTable(tableName)
       if (!exists) continue
-
       const rawData = await trx(tableName).select('*')
-
       for (const item of rawData) {
-        // 🎯 MATCHES SCHEMA EXACTLY (No extra columns)
         const baseData = {
           artist: item.artist,
           title: item.title,
@@ -69,7 +61,6 @@ export async function consolidateRawDataToMaster(): Promise<number> {
           label: item.label,
           source_distributor: item.distributor,
         }
-
         const key =
           `${baseData.source_distributor}-${baseData.catalogue_number}-${baseData.title}-${baseData.format}`.toLowerCase()
         const collisionKey =
@@ -77,7 +68,7 @@ export async function consolidateRawDataToMaster(): Promise<number> {
 
         if (!uniqueItems.has(key)) {
           uniqueItems.set(key, true)
-          itemsToInsert.push(baseData) // 🎯 No last_imported_at
+          itemsToInsert.push(baseData)
         } else if (!seenCollisions.has(collisionKey)) {
           seenCollisions.add(collisionKey)
           collisions.push({
@@ -89,12 +80,10 @@ export async function consolidateRawDataToMaster(): Promise<number> {
       }
     }
 
-    // 3. Insert New Items to Master
     if (itemsToInsert.length > 0) {
       await trx.batchInsert('master_catalogue', itemsToInsert, 100)
     }
 
-    // 4. Update Collisions (Wipe and Refresh)
     await trx('master_collisions').del()
     if (collisions.length > 0) {
       const chunkSize = 50
@@ -133,28 +122,50 @@ export async function getMasterCatalogue(limit = 200) {
     .limit(limit)
 }
 
-export async function searchMasterCatalogue(query: string, filter: string) {
+/**
+ * 🎯 SMART SEARCH & SORT
+ * Handles searching all fields, filtering by distributor, and custom sorting.
+ */
+export async function searchMasterCatalogue(
+  query: string,
+  distributor: string = 'All',
+  sort: string = 'artist',
+) {
   const term = `%${query}%`
-  return knex('master_catalogue')
-    .select('*')
-    .where((builder) => {
-      if (filter === 'artist') builder.where('artist', 'like', term)
-      else if (filter === 'title') builder.where('title', 'like', term)
-      else if (filter === 'barcode') builder.where('barcode', 'like', term)
-      else {
-        builder
-          .where('artist', 'like', term)
-          .orWhere('title', 'like', term)
-          .orWhere('barcode', 'like', term)
-          .orWhere('catalogue_number', 'like', term)
-          .orWhere('label', 'like', term)
-      }
+  let queryBuilder = knex<MasterCatalogueRow>('master_catalogue').select('*')
+
+  // 1. Smart Search (checks all text fields)
+  if (query) {
+    queryBuilder = queryBuilder.where((builder) => {
+      builder
+        .where('artist', 'like', term)
+        .orWhere('title', 'like', term)
+        .orWhere('barcode', 'like', term)
+        .orWhere('catalogue_number', 'like', term)
+        .orWhere('label', 'like', term)
     })
-    .orderByRaw(
-      "CASE WHEN artist = '' OR artist IS NULL THEN 'Various' ELSE artist END ASC",
-    )
-    .orderBy('title', 'asc')
-    .limit(200)
+  }
+
+  // 2. Distributor Filter
+  if (distributor && distributor !== 'All') {
+    queryBuilder = queryBuilder.andWhere('source_distributor', distributor)
+  }
+
+  // 3. Dynamic Sorting
+  if (sort === 'high') {
+    queryBuilder = queryBuilder.orderBy('price', 'desc')
+  } else if (sort === 'low') {
+    queryBuilder = queryBuilder.orderBy('price', 'asc')
+  } else {
+    // Default Alphabetical
+    queryBuilder = queryBuilder
+      .orderByRaw(
+        "CASE WHEN artist = '' OR artist IS NULL THEN 'Various' ELSE artist END ASC",
+      )
+      .orderBy('title', 'asc')
+  }
+
+  return queryBuilder.limit(200)
 }
 
 export async function clearRawTable(tableName: string) {

@@ -17,7 +17,20 @@ export default function CatalogueList() {
   const [dbCount, setDbCount] = useState(0)
   const [budgetLimit, setBudgetLimit] = useState(0)
   const [sessionName, setSessionName] = useState('')
-  const [sortOrder, setSortOrder] = useState<'low' | 'high'>('low')
+  const [sortOrder, setSortOrder] = useState('artist') // Default alphabetical
+  const [searchTerm, setSearchTerm] = useState('')
+
+  const distributors = [
+    'All',
+    'Southbound',
+    'Universal Music',
+    'Border Music',
+    'Collective (LP)',
+    'Collective (CD)',
+    'Rhythmethod',
+    'Sony Music',
+    'Warner Music',
+  ]
 
   const syncOrderContext = async () => {
     if (!id) return
@@ -30,8 +43,8 @@ export default function CatalogueList() {
       setSessionName(orderRes.body.name)
       setDistFilter(orderRes.body.distributor)
 
-      // Auto-filter search
-      performSearch('', orderRes.body.distributor)
+      // Initial load with session distributor
+      performSearch('', orderRes.body.distributor, sortOrder)
 
       const statsRes = await request
         .get(`/api/v1/orders/${id}/stats`)
@@ -46,6 +59,11 @@ export default function CatalogueList() {
   useEffect(() => {
     syncOrderContext()
   }, [id])
+
+  // 🎯 Re-run search whenever filter or sort changes
+  useEffect(() => {
+    performSearch(searchTerm, distFilter, sortOrder)
+  }, [distFilter, sortOrder])
 
   const handleAddToOrder = async (item: any) => {
     const qty = quantities[item.id] || 1
@@ -65,16 +83,6 @@ export default function CatalogueList() {
       console.error(err)
     }
   }
-
-  const processedResults = [...results]
-    .filter(
-      (item) => distFilter === 'All' || item.source_distributor === distFilter,
-    )
-    .sort((a, b) => {
-      const priceA = a.price ?? 0
-      const priceB = b.price ?? 0
-      return sortOrder === 'low' ? priceA - priceB : priceB - priceA
-    })
 
   const remaining = budgetLimit - dbTotal
   const percentUsed = Math.min((dbTotal / budgetLimit) * 100, 100)
@@ -128,16 +136,40 @@ export default function CatalogueList() {
         </div>
       </div>
 
+      {/* 🚀 COMMAND BAR */}
       <div className="bg-white p-4 rounded-xl shadow-md border-2 border-blue-50 flex gap-4 items-center">
         <div className="flex-1">
-          <SearchBar onSearch={(q) => performSearch(q, distFilter)} />
+          <SearchBar
+            onSearch={(q) => {
+              setSearchTerm(q)
+              performSearch(q, distFilter, sortOrder)
+            }}
+          />
         </div>
-        <button
-          onClick={() => setSortOrder(sortOrder === 'low' ? 'high' : 'low')}
-          className="px-4 py-2 bg-gray-100 rounded-lg text-[10px] font-black uppercase"
+
+        {/* Distributor Dropdown */}
+        <select
+          value={distFilter}
+          onChange={(e) => setDistFilter(e.target.value)}
+          className="bg-gray-50 border border-gray-200 text-gray-700 py-2 px-3 rounded-lg font-bold text-[10px] uppercase tracking-widest outline-none"
         >
-          Price: {sortOrder === 'low' ? 'Low → High' : 'High → Low'}
-        </button>
+          {distributors.map((d) => (
+            <option key={d} value={d}>
+              {d === 'All' ? 'All Distributors' : d}
+            </option>
+          ))}
+        </select>
+
+        {/* Sort Dropdown */}
+        <select
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value)}
+          className="bg-gray-50 border border-gray-200 text-blue-600 py-2 px-3 rounded-lg font-bold text-[10px] uppercase tracking-widest outline-none"
+        >
+          <option value="artist">Alphabetical (A-Z)</option>
+          <option value="low">Price: Low to High</option>
+          <option value="high">Price: High to Low</option>
+        </select>
       </div>
 
       <div className="bg-white shadow-xl rounded-2xl overflow-hidden border">
@@ -156,7 +188,7 @@ export default function CatalogueList() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {processedResults.map((item) => (
+            {results.map((item) => (
               <tr
                 key={item.id}
                 className="hover:bg-blue-50/30 transition-colors"
@@ -165,7 +197,12 @@ export default function CatalogueList() {
                   <p className="text-sm font-bold text-gray-900 uppercase leading-none">
                     {item.artist || 'VARIOUS'}
                   </p>
-                  <p className="text-[10px] text-gray-400 mt-1">{item.title}</p>
+                  <p className="text-[10px] text-gray-400 mt-1">
+                    {item.title}{' '}
+                    <span className="ml-2 text-[8px] opacity-50">
+                      ({item.source_distributor})
+                    </span>
+                  </p>
                 </td>
                 <td className="px-6 py-4 text-right text-xs font-mono">
                   ${(item.price ?? 0).toFixed(2)}

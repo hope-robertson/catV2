@@ -8,7 +8,6 @@ export function useCatalogue() {
   const [results, setResults] = useState<MasterCatalogueRow[]>([])
   const [loading, setLoading] = useState(false)
 
-  // Initial load
   useEffect(() => {
     if (isAuthenticated) {
       const loadInitialData = async () => {
@@ -27,20 +26,22 @@ export function useCatalogue() {
     }
   }, [isAuthenticated, getAccessTokenSilently])
 
-  const performSearch = async (query: string, filter: string) => {
+  const performSearch = async (
+    query: string,
+    filter: string,
+    sort: string = 'artist',
+  ) => {
     setLoading(true)
     try {
       const token = await getAccessTokenSilently()
 
       let data: MasterCatalogueRow[]
 
-      // 🎯 THE FIX: Switch logic if the search is cleared
-      if (!query && (filter === 'All' || !filter)) {
-        console.log('🔄 Resetting to full master list...')
+      if (!query && (filter === 'All' || !filter) && sort === 'artist') {
         data = await getFullMasterList(token)
       } else {
-        console.log(`📡 Searching for "${query}" with filter "${filter}"`)
-        data = await searchCatalogue(query, filter, token)
+        // Updated to pass sort parameter to the API function
+        data = await searchCatalogue(query, filter, sort, token)
       }
 
       setResults(data)
