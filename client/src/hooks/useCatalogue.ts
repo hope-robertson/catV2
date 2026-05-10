@@ -1,56 +1,46 @@
-import { useState, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
-import { searchCatalogue, getFullMasterList } from '../apis/catalogue.js'
+import request from 'superagent'
 import { MasterCatalogueRow } from '../models/catalogue.js'
 
 export function useCatalogue() {
-  const { getAccessTokenSilently, isAuthenticated } = useAuth0()
+  const { getAccessTokenSilently } = useAuth0()
   const [results, setResults] = useState<MasterCatalogueRow[]>([])
   const [loading, setLoading] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      const loadInitialData = async () => {
-        setLoading(true)
-        try {
-          const token = await getAccessTokenSilently()
-          const data = await getFullMasterList(token)
-          setResults(data)
-        } catch (err) {
-          console.error('Failed to load initial catalogue:', err)
-        } finally {
-          setLoading(false)
-        }
+  const performSearch = useCallback(
+    async (
+      query: string,
+      distributor: string,
+      sort: string,
+      format: string,
+      offset: number = 0,
+    ) => {
+      setLoading(true)
+      try {
+        const token = await getAccessTokenSilently()
+        const res = await request
+          .get('/api/v1/catalogue/search')
+          .set('Authorization', `Bearer ${token}`)
+          .query({ q: query, distributor, sort, format, offset })
+
+        const newItems = res.body
+
+        // 🎯 If we got fewer than 50 items, we've reached the end
+        if (newItems.length < 50) setHasMore(false)
+        else setHasMore(true)
+
+        // 🎯 If offset is 0, it's a fresh search (replace). Otherwise, append.
+        setResults((prev) => (offset === 0 ? newItems : [...prev, ...newItems]))
+      } catch (err) {
+        console.error('Lazy load failed:', err)
+      } finally {
+        setLoading(false)
       }
-      loadInitialData()
-    }
-  }, [isAuthenticated, getAccessTokenSilently])
+    },
+    [getAccessTokenSilently],
+  )
 
-  const performSearch = async (
-    query: string,
-    filter: string,
-    sort: string = 'artist',
-  ) => {
-    setLoading(true)
-    try {
-      const token = await getAccessTokenSilently()
-
-      let data: MasterCatalogueRow[]
-
-      if (!query && (filter === 'All' || !filter) && sort === 'artist') {
-        data = await getFullMasterList(token)
-      } else {
-        // Updated to pass sort parameter to the API function
-        data = await searchCatalogue(query, filter, sort, token)
-      }
-
-      setResults(data)
-    } catch (err) {
-      console.error('Search failed:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return { results, loading, performSearch }
+  return { results, loading, hasMore, performSearch }
 }

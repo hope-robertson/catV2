@@ -5,17 +5,16 @@ const rootUrl = '/api/v1/catalogue'
 
 export async function searchCatalogue(
   query: string,
-  filter: string,
+  distributor: string,
+  sort: string,
+  format: string,
   token: string,
 ): Promise<MasterCatalogueRow[]> {
-  console.log(`[API] Searching for: "${query}" with filter: "${filter}"`)
-
   const res = await request
     .get(`${rootUrl}/search`)
     .set('Authorization', `Bearer ${token}`)
-    .query({ q: query, filter })
+    .query({ q: query, distributor, sort, format })
 
-  console.log(`[API] received ${res.body.length} results`)
   return res.body
 }
 

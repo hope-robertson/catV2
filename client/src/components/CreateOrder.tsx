@@ -1,201 +1,113 @@
 import React, { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import request from 'superagent'
+import { useNavigate } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
-import { formatCurrency } from '../utils/pricing.js'
+import request from 'superagent'
 
-export default function OrderReview() {
-  const { id } = useParams()
+export default function CreateOrder() {
   const navigate = useNavigate()
   const { getAccessTokenSilently } = useAuth0()
 
-  const [lowGenres, setLowGenres] = useState<string[]>([])
-  const [newGenre, setNewGenre] = useState('')
-  const [sliderVal, setSliderVal] = useState(0)
-
-  // 📡 1. Fetch Order Header (For Budget Slider sync)
-  const { data: orderHeader, refetch: refetchHeader } = useQuery({
-    queryKey: ['orderHeader', id],
-    queryFn: async () => {
-      const token = await getAccessTokenSilently()
-      const res = await request
-        .get(`/api/v1/orders/${id}`)
-        .set('Authorization', `Bearer ${token}`)
-      setSliderVal(res.body.budget_limit)
-      return res.body
-    },
+  const [form, setForm] = useState({
+    name: '',
+    budget_limit: 1000,
+    distributor: 'Southbound',
   })
 
-  // 📡 2. Fetch Order Summary
-  const { data: summary, isLoading } = useQuery({
-    queryKey: ['orderSummary', id],
-    queryFn: async () => {
-      const token = await getAccessTokenSilently()
-      const res = await request
-        .get(`/api/v1/orders/${id}/summary`)
-        .set('Authorization', `Bearer ${token}`)
-      return res.body
-    },
-  })
+  const distributors = [
+    'Southbound',
+    'Universal Music',
+    'Border Music',
+    'Collective (LP)',
+    'Collective (CD)',
+    'Rhythmethod',
+    'Sony Music',
+    'Warner Music',
+  ]
 
-  // 🎯 UPDATE BUDGET: PATCH the DB on Slider Change
-  const updateBudget = async (newVal: number) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
     try {
       const token = await getAccessTokenSilently()
-      await request
-        .patch(`/api/v1/orders/${id}`)
+      const res = await request
+        .post('/api/v1/orders')
         .set('Authorization', `Bearer ${token}`)
-        .send({ budget_limit: newVal })
-      await refetchHeader()
+        .send(form)
+
+      navigate(`/orders/${res.body.id}/catalogue`)
     } catch (err) {
-      console.error('🔥 Patch failed:', err)
+      console.error('Order creation failed:', err)
+      alert('Failed to initialize mission.')
     }
   }
 
-  const downloadOrderList = () => {
-    if (!summary || !orderHeader) return
-    const body = summary.items
-      .map(
-        (i: any) => `${i.artist.toUpperCase()} - ${i.title} (x${i.quantity})`,
-      )
-      .join('\n')
-    const blob = new Blob([body], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `order_${orderHeader.distributor}_${id}.txt`
-    link.click()
-  }
-
-  if (isLoading)
-    return (
-      <div className="p-20 text-center font-black animate-pulse uppercase">
-        Syncing Manifest...
-      </div>
-    )
-
-  const items = summary?.items || []
-  const stats = summary?.stats || { totalCost: 0, totalItems: 0 }
-  const remaining = sliderVal - stats.totalCost
-
   return (
-    <div className="relative max-w-5xl mx-auto mt-10 space-y-8 pb-20 px-4 pr-80">
-      {/* 🚀 TOP RIGHT HUD (Budget Slider) */}
-      <div className="fixed top-24 right-6 w-72 z-50">
-        <div className="bg-gray-900 shadow-2xl rounded-[32px] p-6 text-white border-2 border-white/10">
-          <p className="text-[10px] font-black uppercase text-blue-400 tracking-widest mb-4">
-            Budget Adjustment
-          </p>
+    <div className="max-w-2xl mx-auto mt-12 bg-white p-10 rounded-[32px] shadow-xl border border-gray-100">
+      <header className="mb-8">
+        <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter italic">
+          New Supply Mission
+        </h2>
+        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-1">
+          Initialize Order Parameters
+        </p>
+      </header>
 
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">
+            Reference Name
+          </label>
           <input
-            type="range"
-            min="0"
-            max="4000"
-            step="50"
-            value={sliderVal}
-            onChange={(e) => setSliderVal(Number(e.target.value))}
-            onMouseUp={() => updateBudget(sliderVal)}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500 mb-2"
+            required
+            type="text"
+            placeholder="e.g. Monthly Restock"
+            value={form.name}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl outline-none font-bold transition-all"
           />
+        </div>
 
-          <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase mb-4">
-            <span>$0</span>
-            <span className="text-white font-black text-sm">${sliderVal}</span>
-            <span>$4000</span>
+        <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">
+              Distributor
+            </label>
+            <select
+              value={form.distributor}
+              onChange={(e) =>
+                setForm({ ...form, distributor: e.target.value })
+              }
+              className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl outline-none font-bold transition-all appearance-none"
+            >
+              {distributors.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
           </div>
 
-          <div className="pt-4 border-t border-white/5 space-y-2">
-            <div className="flex justify-between">
-              <span className="text-[9px] font-black uppercase opacity-50">
-                Current Spend
-              </span>
-              <span className="text-sm font-bold">
-                {formatCurrency(stats.totalCost)}
-              </span>
-            </div>
-            <div className="flex justify-between border-t border-white/5 pt-2">
-              <span className="text-[9px] font-black uppercase opacity-50 tracking-widest">
-                Available
-              </span>
-              <span
-                className={`text-sm font-bold ${remaining < 0 ? 'text-red-400' : 'text-green-400'}`}
-              >
-                {formatCurrency(remaining)}
-              </span>
-            </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-1">
+              Budget ($)
+            </label>
+            <input
+              type="number"
+              value={form.budget_limit}
+              onChange={(e) =>
+                setForm({ ...form, budget_limit: Number(e.target.value) })
+              }
+              className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-blue-500 focus:bg-white rounded-2xl outline-none font-bold transition-all font-mono"
+            />
           </div>
         </div>
-      </div>
 
-      <div className="flex justify-between items-end border-b-4 border-gray-900 pb-6">
-        <div>
-          <h2 className="text-4xl font-black text-gray-900 uppercase tracking-tighter italic leading-none">
-            Review
-          </h2>
-          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest mt-2">
-            {orderHeader?.distributor} • Session #{id}
-          </p>
-        </div>
-        <div className="flex gap-4">
-          <button
-            onClick={() => navigate(`/orders/${id}/catalogue`)}
-            className="px-6 py-3 border-2 border-gray-900 rounded-2xl font-black uppercase text-[10px] tracking-widest"
-          >
-            ← Picks
-          </button>
-          <button
-            onClick={downloadOrderList}
-            className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg"
-          >
-            📄 Export
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-[40px] shadow-xl overflow-hidden border border-gray-100">
-        <table className="w-full text-left">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="px-8 py-5 text-[10px] font-black uppercase text-gray-400 tracking-widest">
-                Artist / Title
-              </th>
-              <th className="px-8 py-5 text-center text-[10px] font-black uppercase text-gray-400 tracking-widest">
-                Qty
-              </th>
-              <th className="px-8 py-5 text-right text-[10px] font-black uppercase text-gray-400 tracking-widest">
-                Total
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {items.map((item: any) => (
-              <tr
-                key={item.item_id}
-                className="hover:bg-blue-50/20 transition-colors"
-              >
-                <td className="px-8 py-6">
-                  <p className="font-black text-gray-900 uppercase text-sm leading-none">
-                    {item.artist}
-                  </p>
-                  <p className="text-xs font-bold text-gray-400 mt-1">
-                    {item.title}
-                  </p>
-                  <p className="text-[9px] font-black text-blue-500 uppercase mt-1">
-                    Picked by: {item.staff_member || 'System'}
-                  </p>
-                </td>
-                <td className="px-8 py-6 text-center font-mono font-bold text-gray-900">
-                  {item.quantity}
-                </td>
-                <td className="px-8 py-6 text-right font-mono font-bold text-gray-600">
-                  {formatCurrency(item.ams_price * item.quantity)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+        <button
+          type="submit"
+          className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl hover:bg-blue-600 transition-all active:scale-[0.98] mt-4"
+        >
+          Initialize Order →
+        </button>
+      </form>
     </div>
   )
 }

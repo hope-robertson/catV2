@@ -103,9 +103,10 @@ export async function consolidateRawDataToMaster(): Promise<number> {
   }
 }
 
-export async function getMasterCatalogue(limit = 200) {
+export async function getMasterCatalogue(limit = 50, offset = 0) {
   return knex('master_catalogue')
     .select(
+      'id',
       'artist',
       'title',
       'label',
@@ -120,21 +121,23 @@ export async function getMasterCatalogue(limit = 200) {
     )
     .orderBy('title', 'asc')
     .limit(limit)
+    .offset(offset)
 }
 
 /**
- * 🎯 SMART SEARCH & SORT
- * Handles searching all fields, filtering by distributor, and custom sorting.
+ * 🎯 SMART SEARCH & SORT with Pagination
  */
 export async function searchMasterCatalogue(
   query: string,
   distributor: string = 'All',
   sort: string = 'artist',
+  format: string = 'All',
+  limit: number = 50, // 🎯 Page size
+  offset: number = 0, // 🎯 Skip count
 ) {
   const term = `%${query}%`
   let queryBuilder = knex<MasterCatalogueRow>('master_catalogue').select('*')
 
-  // 1. Smart Search (checks all text fields)
   if (query) {
     queryBuilder = queryBuilder.where((builder) => {
       builder
@@ -146,18 +149,23 @@ export async function searchMasterCatalogue(
     })
   }
 
-  // 2. Distributor Filter
   if (distributor && distributor !== 'All') {
     queryBuilder = queryBuilder.andWhere('source_distributor', distributor)
   }
 
-  // 3. Dynamic Sorting
+  if (format && format !== 'All') {
+    queryBuilder = queryBuilder.andWhere('format', 'like', `%${format}%`)
+  }
+
   if (sort === 'high') {
     queryBuilder = queryBuilder.orderBy('price', 'desc')
   } else if (sort === 'low') {
     queryBuilder = queryBuilder.orderBy('price', 'asc')
+  } else if (sort === 'format') {
+    queryBuilder = queryBuilder
+      .orderBy('format', 'asc')
+      .orderBy('artist', 'asc')
   } else {
-    // Default Alphabetical
     queryBuilder = queryBuilder
       .orderByRaw(
         "CASE WHEN artist = '' OR artist IS NULL THEN 'Various' ELSE artist END ASC",
@@ -165,7 +173,7 @@ export async function searchMasterCatalogue(
       .orderBy('title', 'asc')
   }
 
-  return queryBuilder.limit(200)
+  return queryBuilder.limit(limit).offset(offset)
 }
 
 export async function clearRawTable(tableName: string) {

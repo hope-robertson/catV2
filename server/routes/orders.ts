@@ -1,16 +1,20 @@
-import express, { Response } from 'express' // 🎯 Explicitly import Response
+import express, { Response } from 'express'
 import { checkJwt } from '../auth0/auth.js'
-import { authorizeUser, isOrderer, UserRequest } from '../auth0/permissions.js'
+import {
+  checkPermissions,
+  canCreateOrders,
+  AuthRequest,
+} from '../middleware/auth.js'
 import knex from '../db/connection.js'
 
 const router = express.Router()
 
-// GET all active orders for the Hub
+// GET all active orders
 router.get(
   '/',
   checkJwt,
-  authorizeUser,
-  async (req: UserRequest, res: Response) => {
+  checkPermissions,
+  async (req: AuthRequest, res: Response) => {
     try {
       const orders = await knex('orders')
         .whereNot('status', 'finalized')
@@ -22,13 +26,12 @@ router.get(
   },
 )
 
-// GET single order for the Catalogue context
-// 🎯 FIXED: Changed generic Request to UserRequest
+// GET single order
 router.get(
   '/:id',
   checkJwt,
-  authorizeUser,
-  async (req: UserRequest, res: Response) => {
+  checkPermissions,
+  async (req: AuthRequest, res: Response) => {
     try {
       const order = await knex('orders').where('id', req.params.id).first()
       if (!order) return res.status(404).json({ message: 'Order not found' })
@@ -39,13 +42,13 @@ router.get(
   },
 )
 
-// PATCH update for Budget Slider and Session Name
+// PATCH update order
 router.patch(
   '/:id',
   checkJwt,
-  authorizeUser,
-  isOrderer,
-  async (req: UserRequest, res: Response) => {
+  checkPermissions,
+  canCreateOrders,
+  async (req: AuthRequest, res: Response) => {
     try {
       const { name, budget_limit, status } = req.body
       await knex('orders').where('id', req.params.id).update({
@@ -65,20 +68,20 @@ router.patch(
 router.post(
   '/',
   checkJwt,
-  authorizeUser,
-  isOrderer,
-  async (req: UserRequest, res: Response) => {
+  checkPermissions,
+  canCreateOrders,
+  async (req: AuthRequest, res: Response) => {
     try {
       const { name, distributor, budget_limit } = req.body
       const [newOrderId] = await knex('orders').insert({
-        name: name || null,
+        name: name || 'New Mission',
         distributor,
-        budget_limit,
+        budget_limit: budget_limit || 1000,
         status: 'active',
         created_by_id: req.dbUser?.id,
       })
       res.status(201).json({ id: newOrderId })
-    } catch (error) {
+    } catch (error: any) {
       res.status(500).json({ message: 'Init failed' })
     }
   },
@@ -88,9 +91,9 @@ router.post(
 router.post(
   '/:id/items',
   checkJwt,
-  authorizeUser,
-  isOrderer,
-  async (req: UserRequest, res: Response) => {
+  checkPermissions,
+  canCreateOrders,
+  async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params
       const { master_catalogue_id, quantity, ams_price } = req.body
@@ -108,13 +111,29 @@ router.post(
   },
 )
 
+// 🎯 NEW: DELETE item from order
+router.delete(
+  '/items/:itemId',
+  checkJwt,
+  checkPermissions,
+  canCreateOrders,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { itemId } = req.params
+      await knex('order_items').where('id', itemId).del()
+      res.json({ message: 'Item removed' })
+    } catch (error) {
+      res.status(500).json({ message: 'Delete failed' })
+    }
+  },
+)
+
 // GET Stats for the HUD
-// 🎯 FIXED: Changed generic Request to UserRequest
 router.get(
   '/:id/stats',
   checkJwt,
-  authorizeUser,
-  async (req: UserRequest, res: Response) => {
+  checkPermissions,
+  async (req: AuthRequest, res: Response) => {
     const { id } = req.params
     try {
       const items = await knex('order_items')
@@ -133,12 +152,11 @@ router.get(
 )
 
 // GET Summary for Review
-// 🎯 FIXED: Changed generic Request to UserRequest
 router.get(
   '/:id/summary',
   checkJwt,
-  authorizeUser,
-  async (req: UserRequest, res: Response) => {
+  checkPermissions,
+  async (req: AuthRequest, res: Response) => {
     const { id } = req.params
     try {
       const summary = await knex('order_items')

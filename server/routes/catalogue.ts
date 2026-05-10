@@ -12,11 +12,6 @@ import { checkJwt } from '../auth0/auth.js'
 const router = Router()
 router.use(checkJwt)
 
-/**
- * 🎯 UPDATED STAGING TABLES
- * Removed: flying_nun_records_limited_raw (Decommissioned)
- * Added: universal_music_raw
- */
 const STAGING_TABLES = [
   'border_music_raw',
   'collective_lp_raw',
@@ -26,33 +21,40 @@ const STAGING_TABLES = [
   'universal_music_raw',
 ]
 
-// GET full master catalogue
 router.get('/master', async (req: Request, res: Response) => {
   try {
-    const results = await db.getMasterCatalogue()
+    const limit = Number(req.query.limit) || 50
+    const offset = Number(req.query.offset) || 0
+    const results = await db.getMasterCatalogue(limit, offset)
     res.status(200).json(results)
   } catch (error) {
     res.status(500).json({ message: 'Failed to fetch master catalogue' })
   }
 })
 
-// SEARCH master catalogue
 router.get('/search', async (req: Request, res: Response) => {
   try {
-    const query = req.query.q as string
-    const filter = (req.query.filter as string) || 'all'
+    const q = (req.query.q as string) || ''
+    const distributor = (req.query.distributor as string) || 'All'
+    const sort = (req.query.sort as string) || 'artist'
+    const format = (req.query.format as string) || 'All'
+    const offset = Number(req.query.offset) || 0 // 🎯 Receive offset from client
 
-    if (!query)
-      return res.status(400).json({ message: 'Search query required' })
-
-    const results = await db.searchMasterCatalogue(query, filter)
+    // 🎯 Pass offset to DB (limit defaults to 50 in db function)
+    const results = await db.searchMasterCatalogue(
+      q,
+      distributor,
+      sort,
+      format,
+      50,
+      offset,
+    )
     res.status(200).json(results)
   } catch (error) {
     res.status(500).json({ message: 'Search failed' })
   }
 })
 
-// GET total count for stats HUD
 router.get('/master-stats', async (req: Request, res: Response) => {
   try {
     const total = await db.getMasterCount()
@@ -62,9 +64,6 @@ router.get('/master-stats', async (req: Request, res: Response) => {
   }
 })
 
-/**
- * 🎯 IMPORT ROUTE
- */
 router.post('/import', async (req: Request, res: Response) => {
   try {
     const { filename, distributor: distVal } = req.body
@@ -76,13 +75,9 @@ router.post('/import', async (req: Request, res: Response) => {
     const config = getDistributorConfig(distVal)
     if (!config) throw new Error(`Config not found for ${distVal}`)
 
-    // Clear existing data for this distributor in staging
     await db.clearRawTable(config.rawTableName)
-
-    // Run the specific excel/csv handler
     const handler = getDistributorDataHandler(config)
     const dataToInsert = await handler(path.resolve('uploads', filename), 'All')
-
     const insertedCount = await db.importCatalogueData(
       config.rawTableName,
       dataToInsert,
@@ -94,27 +89,19 @@ router.post('/import', async (req: Request, res: Response) => {
       distributor: config.name,
     })
   } catch (error: any) {
-    console.error('Import Error:', error)
     res.status(500).json({ message: 'Import failed' })
   }
 })
 
-/**
- * Merges staged data into master and clears staging tables.
- */
 router.post('/consolidate', async (req: Request, res: Response) => {
   try {
     const count = await db.consolidateRawDataToMaster()
-    // Wipe staging tables after successful merge
     await Promise.all(STAGING_TABLES.map((t) => db.clearRawTable(t)))
     res.status(200).json({ message: 'Consolidation complete', count })
   } catch (error: any) {
-    console.error('Consolidation Route Error:', error.message)
     res.status(500).json({ message: 'Consolidation failed' })
   }
 })
-
-// --- COLLISION ROUTES ---
 
 router.get('/collisions', async (req: Request, res: Response) => {
   try {
@@ -138,15 +125,12 @@ router.post('/collisions/resolve', async (req: Request, res: Response) => {
       const { collision_reason, source_table, id: oldId, ...masterData } = item
       await knex('master_catalogue').insert(masterData)
     }
-
     await knex('master_collisions').where({ id }).del()
     res.status(200).json({ success: true })
   } catch (error) {
     res.status(500).json({ message: 'Resolution failed' })
   }
 })
-
-// --- MAINTENANCE ROUTES ---
 
 router.post('/clear-staging', async (req: Request, res: Response) => {
   try {
@@ -157,21 +141,15 @@ router.post('/clear-staging', async (req: Request, res: Response) => {
   }
 })
 
-/**
- * 🎯 PREVIEW STAGING
- */
 router.get('/preview-staging', async (req: Request, res: Response) => {
   try {
     const rawData = await db.getAllRawData()
-
-    // 🎯 Filter: Ensure we aren't showing the header row
     const cleanData = rawData.filter(
       (row) =>
         row.artist?.toLowerCase() !== 'artist' &&
         row.title?.toLowerCase() !== 'title' &&
         row.price !== null,
     )
-
     const preview = cleanData.slice(0, 200).map((row) => ({
       original: { artist: row.artist, title: row.title },
       scrubbed: {
@@ -184,7 +162,6 @@ router.get('/preview-staging', async (req: Request, res: Response) => {
     }))
     res.status(200).json(preview)
   } catch (error) {
-    console.error('Preview failed:', error)
     res.status(500).json({ message: 'Preview failed' })
   }
 })

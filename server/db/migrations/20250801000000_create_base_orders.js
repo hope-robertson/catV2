@@ -2,6 +2,10 @@ export async function up(knex) {
   // 1. THE PARENT: Orders Table
   await knex.schema.createTable('orders', (table) => {
     table.increments('id').primary()
+
+    // 🎯 The Fix: Adding the missing name column
+    table.string('name').notNullable()
+
     table.string('distributor').notNullable()
     table.string('status').defaultTo('active')
     table.float('budget_limit').defaultTo(0)
@@ -11,6 +15,7 @@ export async function up(knex) {
     table.integer('pct_classics').defaultTo(0)
     table.integer('pct_risky').defaultTo(0)
 
+    // 🎯 Tracking: This links back to the staff member who started the order
     table
       .integer('created_by_id')
       .unsigned()
@@ -36,7 +41,6 @@ export async function up(knex) {
       .references('id')
       .inTable('master_catalogue')
 
-    // 🎯 ADDED: This allows the /summary route to join with the staff table
     table
       .integer('staff_id')
       .unsigned()
