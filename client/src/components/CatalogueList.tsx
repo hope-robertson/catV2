@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import SearchBar from './SearchBar.js'
 import { useCatalogue } from '../hooks/useCatalogue.js'
-import { useStaff } from '../hooks/useStaff.js' // 🎯 Added your staff hook
+import { useStaff } from '../hooks/useStaff.js'
 import { formatCurrency } from '../utils/pricing.js'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
@@ -13,10 +13,8 @@ export default function CatalogueList() {
   const { getAccessTokenSilently } = useAuth0()
   const { results, loading, hasMore, performSearch } = useCatalogue()
 
-  // 🎯 Pull in the isTrusted boolean to verify privileges
   const { isTrusted } = useStaff()
 
-  // Filters & State
   const [distFilter, setDistFilter] = useState('All')
   const [formatFilter, setFormatFilter] = useState('All')
   const [sortOrder, setSortOrder] = useState('artist')
@@ -24,13 +22,14 @@ export default function CatalogueList() {
   const [offset, setOffset] = useState(0)
   const observerTarget = useRef(null)
 
-  // Manifest & HUD Data
   const [orderItems, setOrderItems] = useState<any[]>([])
   const [dbTotal, setDbTotal] = useState(0)
   const [dbCount, setDbCount] = useState(0)
   const [budgetLimit, setBudgetLimit] = useState(0)
   const [sessionName, setSessionName] = useState('')
-  const [quantities, setQuantities] = useState<{ [key: number]: number }>({})
+
+  // 🎯 FIX: Changed to store string so it allows you to clear the input while typing
+  const [quantities, setQuantities] = useState<{ [key: number]: string }>({})
 
   const distributors = [
     'All',
@@ -110,7 +109,8 @@ export default function CatalogueList() {
   }, [hasMore, loading])
 
   const handleAddToOrder = async (item: any) => {
-    const qty = quantities[item.id] || 1
+    // 🎯 FIX: Convert string back to number safely
+    const qty = parseInt(quantities[item.id] || '1', 10)
     try {
       const token = await getAccessTokenSilently()
       await request
@@ -122,7 +122,8 @@ export default function CatalogueList() {
           ams_price: item.price,
         })
       await syncOrderContext()
-      setQuantities((prev) => ({ ...prev, [item.id]: 1 }))
+      // Reset input to 1 after adding
+      setQuantities((prev) => ({ ...prev, [item.id]: '1' }))
     } catch (err) {
       console.error('Add failed')
     }
@@ -237,7 +238,6 @@ export default function CatalogueList() {
               </div>
             </div>
 
-            {/* 🎯 UI GUARD: Hide Finalize and Abort from junior staff */}
             {isTrusted && (
               <div className="flex gap-2 pt-2">
                 <button
@@ -246,16 +246,16 @@ export default function CatalogueList() {
                 >
                   Finalize
                 </button>
+                {/* 🎯 FIX: Explicit sizes, added text so it's obvious */}
                 <button
                   onClick={handleDeleteOrder}
-                  className="flex-none bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black text-[10px] uppercase px-4 py-3 rounded-2xl transition-all active:scale-95"
+                  className="flex-none bg-red-50 text-red-600 hover:bg-red-500 hover:text-white font-black text-[10px] uppercase px-4 py-3 rounded-2xl transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
                   title="Abort Mission"
                 >
                   <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    viewBox="0 0 20 20"
+                    style={{ width: '14px', height: '14px' }}
                     fill="currentColor"
+                    viewBox="0 0 20 20"
                   >
                     <path
                       fillRule="evenodd"
@@ -263,6 +263,7 @@ export default function CatalogueList() {
                       clipRule="evenodd"
                     />
                   </svg>
+                  Abort
                 </button>
               </div>
             )}
@@ -301,17 +302,16 @@ export default function CatalogueList() {
                       x{item.quantity} • ${item.ams_price}
                     </p>
                   </div>
-                  {/* 🎯 UI GUARD: Hide Remove item from junior staff */}
                   {isTrusted && (
                     <button
                       onClick={() => handleRemoveItem(item.item_id)}
                       className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                     >
+                      {/* 🎯 Explicit size constraint */}
                       <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4"
-                        viewBox="0 0 20 20"
+                        style={{ width: '16px', height: '16px' }}
                         fill="currentColor"
+                        viewBox="0 0 20 20"
                       >
                         <path
                           fillRule="evenodd"
@@ -426,10 +426,14 @@ export default function CatalogueList() {
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-center gap-2">
                       {qtyInOrder > 0 && (
-                        <div className="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-1 rounded-lg animate-in fade-in zoom-in duration-300">
+                        <div className="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-1 rounded-lg animate-in fade-in zoom-in duration-300 whitespace-nowrap">
+                          {/* 🎯 FIX: Hardcoded SVG size for the tick so it cannot explode in size */}
                           <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-3 w-3"
+                            style={{
+                              width: '12px',
+                              height: '12px',
+                              flexShrink: 0,
+                            }}
                             viewBox="0 0 20 20"
                             fill="currentColor"
                           >
@@ -445,17 +449,16 @@ export default function CatalogueList() {
                         </div>
                       )}
 
-                      {/* 🎯 UI GUARD: Hide inputs and Add button from junior staff */}
                       {isTrusted ? (
                         <>
                           <input
                             type="number"
                             min="1"
-                            value={quantities[item.id] || 1}
+                            value={quantities[item.id] ?? '1'}
                             onChange={(e) =>
                               setQuantities({
                                 ...quantities,
-                                [item.id]: parseInt(e.target.value),
+                                [item.id]: e.target.value,
                               })
                             }
                             className="w-10 p-2 bg-gray-50 border-none rounded-xl text-xs font-black text-center outline-none focus:ring-2 focus:ring-blue-100"

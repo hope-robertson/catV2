@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import request from 'superagent'
 import { useAuth0 } from '@auth0/auth0-react'
+import { useStaff } from '../hooks/useStaff.js' // 🎯 Added staff hook
 import { formatCurrency } from '../utils/pricing.js'
 
 export default function OrderReview() {
@@ -10,6 +11,9 @@ export default function OrderReview() {
   const navigate = useNavigate()
   const { getAccessTokenSilently } = useAuth0()
   const [sliderVal, setSliderVal] = useState(0)
+
+  // 🎯 Extract privileges
+  const { isTrusted } = useStaff()
 
   const { data: orderHeader, refetch: refetchHeader } = useQuery({
     queryKey: ['orderHeader', id],
@@ -35,6 +39,8 @@ export default function OrderReview() {
   })
 
   const updateBudget = async (newVal: number) => {
+    // Junior staff shouldn't be firing off budget updates
+    if (!isTrusted) return
     try {
       const token = await getAccessTokenSilently()
       await request
@@ -44,6 +50,44 @@ export default function OrderReview() {
       await refetchHeader()
     } catch (err) {
       console.error('🔥 Patch failed:', err)
+    }
+  }
+
+  // 🎯 Wired up Finalize logic
+  const handleFinalize = async () => {
+    if (
+      !window.confirm(
+        'Finalize this mission? This will lock the order for distribution.',
+      )
+    )
+      return
+    try {
+      const token = await getAccessTokenSilently()
+      await request
+        .patch(`/api/v1/orders/${id}/finalize`)
+        .set('Authorization', `Bearer ${token}`)
+      navigate('/')
+    } catch (err) {
+      console.error('Finalize failed')
+    }
+  }
+
+  // 🎯 Added Abort logic
+  const handleDeleteOrder = async () => {
+    if (
+      !window.confirm(
+        'ABORT MISSION: Are you sure you want to permanently delete this entire order? This cannot be undone.',
+      )
+    )
+      return
+    try {
+      const token = await getAccessTokenSilently()
+      await request
+        .delete(`/api/v1/orders/${id}`)
+        .set('Authorization', `Bearer ${token}`)
+      navigate('/')
+    } catch (err) {
+      console.error('Delete order failed')
     }
   }
 
@@ -72,9 +116,10 @@ export default function OrderReview() {
             max="4000"
             step="50"
             value={sliderVal}
-            onChange={(e) => setSliderVal(Number(e.target.value))}
-            onMouseUp={() => updateBudget(sliderVal)}
-            className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-500 mb-2"
+            onChange={(e) => isTrusted && setSliderVal(Number(e.target.value))}
+            onMouseUp={() => isTrusted && updateBudget(sliderVal)}
+            disabled={!isTrusted} // 🎯 Disables slider for junior staff
+            className={`w-full h-2 bg-gray-700 rounded-lg appearance-none mb-2 ${isTrusted ? 'cursor-pointer accent-blue-500' : 'cursor-not-allowed opacity-50'}`}
           />
           <div className="flex justify-between text-[10px] font-bold text-gray-500 uppercase mb-4">
             <span>$0</span>
@@ -116,13 +161,40 @@ export default function OrderReview() {
         <div className="flex gap-4">
           <button
             onClick={() => navigate(`/orders/${id}/catalogue`)}
-            className="px-6 py-3 border-2 border-gray-900 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 transition-all"
+            className="px-6 py-3 border-2 border-gray-900 rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-gray-50 transition-all active:scale-95"
           >
             ← Back
           </button>
-          <button className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg">
-            Finalize & Export
-          </button>
+
+          {/* 🎯 UI GUARD: Only render Finalize and Abort if isTrusted */}
+          {isTrusted && (
+            <>
+              <button
+                onClick={handleFinalize}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-lg transition-all active:scale-95"
+              >
+                Finalize & Export
+              </button>
+              <button
+                onClick={handleDeleteOrder}
+                className="bg-red-50 text-red-600 hover:bg-red-500 hover:text-white px-5 py-3 rounded-2xl font-black uppercase text-[10px] tracking-widest shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                title="Abort Mission"
+              >
+                <svg
+                  style={{ width: '14px', height: '14px' }}
+                  fill="currentColor"
+                  viewBox="0 0 20 20"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Abort
+              </button>
+            </>
+          )}
         </div>
       </div>
 
