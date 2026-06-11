@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import SearchBar from './SearchBar.js'
 import { useCatalogue } from '../hooks/useCatalogue.js'
+import { useStaff } from '../hooks/useStaff.js' // 🎯 Added your staff hook
 import { formatCurrency } from '../utils/pricing.js'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
@@ -11,6 +12,9 @@ export default function CatalogueList() {
   const navigate = useNavigate()
   const { getAccessTokenSilently } = useAuth0()
   const { results, loading, hasMore, performSearch } = useCatalogue()
+
+  // 🎯 Pull in the isTrusted boolean to verify privileges
+  const { isTrusted } = useStaff()
 
   // Filters & State
   const [distFilter, setDistFilter] = useState('All')
@@ -136,7 +140,6 @@ export default function CatalogueList() {
     }
   }
 
-  // Finalize Mission
   const handleFinalize = async () => {
     if (
       !window.confirm(
@@ -155,7 +158,6 @@ export default function CatalogueList() {
     }
   }
 
-  // 🎯 NEW: Abort / Delete Mission
   const handleDeleteOrder = async () => {
     if (
       !window.confirm(
@@ -168,7 +170,7 @@ export default function CatalogueList() {
       await request
         .delete(`/api/v1/orders/${id}`)
         .set('Authorization', `Bearer ${token}`)
-      navigate('/') // Kick back to Hub
+      navigate('/')
     } catch (err) {
       console.error('Delete order failed')
     }
@@ -181,7 +183,6 @@ export default function CatalogueList() {
     setFormatFilter('All')
   }
 
-  // Logic for the "Already Added" tick
   const getItemQuantityInOrder = (masterId: number) => {
     const match = orderItems.find((oi) => oi.master_catalogue_id === masterId)
     return match ? match.quantity : 0
@@ -236,33 +237,35 @@ export default function CatalogueList() {
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
-              <button
-                onClick={handleFinalize}
-                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] uppercase py-3 rounded-2xl transition-all shadow-lg active:scale-95"
-              >
-                Finalize
-              </button>
-              {/* 🎯 NEW: Abort Button */}
-              <button
-                onClick={handleDeleteOrder}
-                className="flex-none bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black text-[10px] uppercase px-4 py-3 rounded-2xl transition-all active:scale-95"
-                title="Abort Mission"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
+            {/* 🎯 UI GUARD: Hide Finalize and Abort from junior staff */}
+            {isTrusted && (
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={handleFinalize}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] uppercase py-3 rounded-2xl transition-all shadow-lg active:scale-95"
                 >
-                  <path
-                    fillRule="evenodd"
-                    d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
-            </div>
+                  Finalize
+                </button>
+                <button
+                  onClick={handleDeleteOrder}
+                  className="flex-none bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white font-black text-[10px] uppercase px-4 py-3 rounded-2xl transition-all active:scale-95"
+                  title="Abort Mission"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-4 w-4"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -298,23 +301,26 @@ export default function CatalogueList() {
                       x{item.quantity} • ${item.ams_price}
                     </p>
                   </div>
-                  <button
-                    onClick={() => handleRemoveItem(item.item_id)}
-                    className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
+                  {/* 🎯 UI GUARD: Hide Remove item from junior staff */}
+                  {isTrusted && (
+                    <button
+                      onClick={() => handleRemoveItem(item.item_id)}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                     >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </button>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-4 w-4"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               ))
             )}
@@ -419,7 +425,6 @@ export default function CatalogueList() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-center gap-2">
-                      {/* 🎯 The Green Tick (Appears if already added) */}
                       {qtyInOrder > 0 && (
                         <div className="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-1 rounded-lg animate-in fade-in zoom-in duration-300">
                           <svg
@@ -440,24 +445,33 @@ export default function CatalogueList() {
                         </div>
                       )}
 
-                      <input
-                        type="number"
-                        min="1"
-                        value={quantities[item.id] || 1}
-                        onChange={(e) =>
-                          setQuantities({
-                            ...quantities,
-                            [item.id]: parseInt(e.target.value),
-                          })
-                        }
-                        className="w-10 p-2 bg-gray-50 border-none rounded-xl text-xs font-black text-center outline-none focus:ring-2 focus:ring-blue-100"
-                      />
-                      <button
-                        onClick={() => handleAddToOrder(item)}
-                        className="bg-gray-900 group-hover:bg-blue-600 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase shadow-lg active:scale-95 transition-all"
-                      >
-                        Add
-                      </button>
+                      {/* 🎯 UI GUARD: Hide inputs and Add button from junior staff */}
+                      {isTrusted ? (
+                        <>
+                          <input
+                            type="number"
+                            min="1"
+                            value={quantities[item.id] || 1}
+                            onChange={(e) =>
+                              setQuantities({
+                                ...quantities,
+                                [item.id]: parseInt(e.target.value),
+                              })
+                            }
+                            className="w-10 p-2 bg-gray-50 border-none rounded-xl text-xs font-black text-center outline-none focus:ring-2 focus:ring-blue-100"
+                          />
+                          <button
+                            onClick={() => handleAddToOrder(item)}
+                            className="bg-gray-900 group-hover:bg-blue-600 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase shadow-lg active:scale-95 transition-all"
+                          >
+                            Add
+                          </button>
+                        </>
+                      ) : (
+                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                          View Only
+                        </span>
+                      )}
                     </div>
                   </td>
                 </tr>
