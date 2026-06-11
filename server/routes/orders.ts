@@ -64,6 +64,26 @@ router.patch(
   },
 )
 
+// 🎯 NEW: Finalize Route (Locks the mission)
+router.patch(
+  '/:id/finalize',
+  checkJwt,
+  checkPermissions,
+  canCreateOrders,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params
+      await knex('orders').where('id', id).update({
+        status: 'finalized',
+        updated_at: knex.fn.now(),
+      })
+      res.json({ message: 'Order finalized' })
+    } catch (error) {
+      res.status(500).json({ message: 'Finalization failed' })
+    }
+  },
+)
+
 // POST create new order
 router.post(
   '/',
@@ -111,7 +131,7 @@ router.post(
   },
 )
 
-// 🎯 NEW: DELETE item from order
+// DELETE item from order
 router.delete(
   '/items/:itemId',
   checkJwt,
@@ -124,6 +144,24 @@ router.delete(
       res.json({ message: 'Item removed' })
     } catch (error) {
       res.status(500).json({ message: 'Delete failed' })
+    }
+  },
+)
+
+// 🎯 NEW: DELETE entire order (Abort Mission)
+router.delete(
+  '/:id',
+  checkJwt,
+  checkPermissions,
+  canCreateOrders,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params
+      // onDelete('CASCADE') in DB handles the attached order_items automatically
+      await knex('orders').where('id', id).del()
+      res.json({ message: 'Order deleted' })
+    } catch (error) {
+      res.status(500).json({ message: 'Failed to delete order' })
     }
   },
 )
@@ -169,6 +207,7 @@ router.get(
         .where('order_items.order_id', id)
         .select(
           'order_items.id as item_id',
+          'order_items.master_catalogue_id', // Needed for the frontend "Tick" check
           'master_catalogue.artist',
           'master_catalogue.title',
           'order_items.ams_price',
