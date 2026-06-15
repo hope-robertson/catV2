@@ -16,9 +16,8 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "sourceMap": true,
-    "allowJs": true,
-    "baseUrl": "."
-  },
+    "allowJs": true
+},
   "include": [
     "server/**/*.ts",
     "client/src/**/*.ts",
