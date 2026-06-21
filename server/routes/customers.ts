@@ -5,7 +5,7 @@ import knex from '../db/connection.js'
 
 const router = express.Router()
 
-// 🎯 GET /api/v1/customers/search (Find existing customers by name/phone)
+// 🔍 GET /api/v1/customers/search (Find existing customers by name/phone)
 router.get(
   '/search',
   checkJwt,
@@ -27,7 +27,7 @@ router.get(
   },
 )
 
-// 🎯 POST /api/v1/customers (Create a new customer)
+// 👤 POST /api/v1/customers (Create a new customer)
 router.post(
   '/',
   checkJwt,
@@ -56,7 +56,7 @@ router.post(
   },
 )
 
-// 🎯 POST /api/v1/customers/:customerId/orders (Create the Docket + Items)
+// 📦 POST /api/v1/customers/:customerId/orders (Create the Docket + Items)
 router.post(
   '/:customerId/orders',
   checkJwt,
@@ -70,7 +70,7 @@ router.post(
     if (!items || items.length === 0)
       return res.status(400).json({ message: 'No items in order' })
 
-    // 🛡️ Transaction: If the items fail, the docket rolls back so you don't get empty ghosts
+    // 🔒 Transaction: If the items fail, the docket rolls back so you don't get empty ghosts
     const trx = await knex.transaction()
 
     try {
@@ -109,7 +109,7 @@ router.post(
   },
 )
 
-// 🎯 GET /api/v1/customers/orders/active (Fetch pending orders for the dashboard)
+// 📋 GET /api/v1/customers/orders/active (Fetch pending orders for the dashboard)
 router.get(
   '/orders/active',
   checkJwt,
@@ -127,6 +127,13 @@ router.get(
           'customers.name as customer_name',
           'customers.phone',
           'staff.name as clerk_name',
+          // Assuming the new migration has been run, you might want to pull these fields too
+          'customer_orders.is_texted',
+          'customer_orders.is_confirmed',
+          'customer_orders.is_ordered',
+          'customer_orders.is_contacted',
+          'customer_orders.is_picked_up',
+          'customer_orders.is_backburner',
         )
         .orderBy('customer_orders.created_at', 'desc')
 
@@ -135,6 +142,46 @@ router.get(
       res
         .status(500)
         .json({ message: 'Failed to fetch active customer orders' })
+    }
+  },
+)
+
+// 🎯 PATCH /api/v1/customers/orders/:docketId (Update status flags from spreadsheet)
+router.patch(
+  '/orders/:docketId',
+  checkJwt,
+  checkPermissions,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { docketId } = req.params
+
+      // Extract only the boolean flags from the request body to prevent overriding other data
+      const {
+        is_texted,
+        is_confirmed,
+        is_ordered,
+        is_contacted,
+        is_picked_up,
+        is_backburner,
+      } = req.body
+
+      const updates: any = {}
+      if (is_texted !== undefined) updates.is_texted = is_texted
+      if (is_confirmed !== undefined) updates.is_confirmed = is_confirmed
+      if (is_ordered !== undefined) updates.is_ordered = is_ordered
+      if (is_contacted !== undefined) updates.is_contacted = is_contacted
+      if (is_picked_up !== undefined) updates.is_picked_up = is_picked_up
+      if (is_backburner !== undefined) updates.is_backburner = is_backburner
+
+      // Update the timestamp whenever a flag is changed
+      updates.updated_at = knex.fn.now()
+
+      await knex('customer_orders').where('id', docketId).update(updates)
+
+      res.json({ message: 'Order flags updated' })
+    } catch (error) {
+      console.error('Failed to update order flags:', error)
+      res.status(500).json({ message: 'Failed to update order status' })
     }
   },
 )
