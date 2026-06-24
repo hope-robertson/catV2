@@ -70,53 +70,77 @@ router.get('/staff', checkJwt, authorizeUser, async (req, res) => {
   }
 })
 
-// 🏴‍☠️ RECRUITMENT (With Auto-Bootstrap Mechanism)
+// 🏴‍☠️ RECRUITMENT (With Smart Upsert & Auto-Bootstrap)
 router.post(
   '/staff',
   checkJwt,
-  // 🎯 Removed authorizeUser here so the first account can be created
+  // 🎯 Removed authorizeUser here so the first account can be created/linked
   async (req: any, res) => {
     const { name, email, phone } = req.body
-    // Auth0 attaches the user's ID to req.auth.payload.sub via checkJwt
     const authId = req.auth?.payload?.sub
 
     try {
-      // 🔗 TRANSACTION: All succeeds or all fails
       await knex.transaction(async (trx) => {
-        // 🎯 Check if the database is empty (is this the first user?)
-        const staffCountData = await trx('staff').count('id as count').first()
-        const isFirstUser = Number(staffCountData?.count) === 0
+        // 🎯 Check if ANY admins currently exist in the system.
+        // If 0, the person making this request gets promoted automatically!
+        const adminCountData = await trx('staff')
+          .where('is_admin', true)
+          .count('id as count')
+          .first()
+        const noAdminsExist = Number(adminCountData?.count) === 0
 
-        // 1. Add to Staff Table
-        const [newStaffId] = await trx('staff').insert({
-          name,
-          email,
-          phone: phone || null,
-          // If first user, link their Auth0 ID and promote them automatically!
-          auth_id: isFirstUser ? authId : null,
-          is_admin: isFirstUser,
-          is_trusted_orderer: isFirstUser,
-          has_completed_onboarding: isFirstUser,
-        })
+        // 🎯 Check if this email already exists (e.g. from seed data)
+        const existingStaff = await trx('staff').where({ email }).first()
 
-        // 2. Fetch existing rotations (Rostering, Ordering, etc.)
+        let staffIdToQueue
+
+        if (existingStaff) {
+          // UPDATE: Link the Auth0 ID and promote if no admins exist
+          await trx('staff')
+            .where({ id: existingStaff.id })
+            .update({
+              name,
+              phone: phone || existingStaff.phone,
+              auth_id: noAdminsExist ? authId : existingStaff.auth_id,
+              is_admin: noAdminsExist ? true : existingStaff.is_admin,
+              is_trusted_orderer: noAdminsExist
+                ? true
+                : existingStaff.is_trusted_orderer,
+              has_completed_onboarding: noAdminsExist
+                ? true
+                : existingStaff.has_completed_onboarding,
+              updated_at: knex.fn.now(),
+            })
+          staffIdToQueue = existingStaff.id
+          console.log(`🔗 Existing profile updated/linked for: ${email}`)
+        } else {
+          // INSERT: Brand new record
+          const [insertedId] = await trx('staff').insert({
+            name,
+            email,
+            phone: phone || null,
+            auth_id: noAdminsExist ? authId : null,
+            is_admin: noAdminsExist,
+            is_trusted_orderer: noAdminsExist,
+            has_completed_onboarding: noAdminsExist,
+          })
+          staffIdToQueue = insertedId
+          console.log(`➕ New profile created for: ${email}`)
+        }
+
+        // --- Fetch & Update Rotations ---
         const rotations = await trx('duty_rotations').select(
           'id',
           'queue_order',
         )
 
-        // 3. Inject new pirate into every active queue
         for (const rotation of rotations) {
-          // Parse the existing queue or start empty
           const currentQueue: number[] = JSON.parse(
             rotation.queue_order || '[]',
           )
-
-          // Add new ID to the end of the line
-          if (!currentQueue.includes(newStaffId)) {
-            currentQueue.push(newStaffId)
+          if (!currentQueue.includes(staffIdToQueue)) {
+            currentQueue.push(staffIdToQueue)
           }
-
           await trx('duty_rotations')
             .where('id', rotation.id)
             .update({
@@ -126,12 +150,9 @@ router.post(
         }
       })
 
-      console.log(
-        `✅ Recruitment Complete: ${name} added to manifest and rotations.`,
-      )
       res
         .status(201)
-        .json({ message: 'New crew member recruited and added to rotations.' })
+        .json({ message: 'Crew member recruited/linked successfully.' })
     } catch (error) {
       console.error('🔥 Recruitment failed:', error)
       res
