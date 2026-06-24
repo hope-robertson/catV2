@@ -8,7 +8,7 @@
     "start": "node dist/server/index.js",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "nodemon --watch server --ext ts,tsx --exec tsx server/index.ts",
-    "dev:client": "vite --config client/vite.config.ts",
+    "dev:client": "vite client --config client/vite.config.ts",
     "knex": "knex",
     "migrate": "knex migrate:latest",
     "seed": "knex seed:run",
