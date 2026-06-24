@@ -8,7 +8,8 @@ import catalogueRoutes from './routes/catalogue.js'
 import staffRoutes from './routes/staff.js'
 import orderRoutes from './routes/orders.js'
 import adminRoutes from './routes/admin.js'
-import { checkJwt } from './utils/auth.js' // Updated import name
+import wishlistRoutes from './routes/wishlist.js' // 🎯 NEW: Wishlist Routes
+import { checkJwt } from './utils/auth.js'
 
 const server = express()
 const PORT = process.env.PORT || 3000
@@ -23,6 +24,7 @@ server.use('/api/v1/orders', checkJwt, orderRoutes)
 server.use('/api/v1/admin', checkJwt, adminRoutes)
 server.use('/api/v1/upload', checkJwt, uploadRouter)
 server.use('/api/v1/catalogue', checkJwt, catalogueRoutes)
+server.use('/api/v1/wishlist', checkJwt, wishlistRoutes) // 🎯 NEW: Mounted Wishlist API
 
 server.get('/', (req, res) => {
   res.send('Core Server Is Running!')

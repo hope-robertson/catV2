@@ -5,14 +5,16 @@ import { useCatalogue } from '../hooks/useCatalogue.js'
 import { useStaff } from '../hooks/useStaff.js'
 import { formatCurrency } from '../utils/pricing.js'
 import { useAuth0 } from '@auth0/auth0-react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import request from 'superagent'
 
 export default function CatalogueList() {
-  const { id } = useParams()
+  const { id } = useParams() // 🎯 If undefined, we are in Global Mode
   const navigate = useNavigate()
   const { getAccessTokenSilently } = useAuth0()
-  const { results, loading, hasMore, performSearch } = useCatalogue()
+  const queryClient = useQueryClient()
 
+  const { results, loading, hasMore, performSearch } = useCatalogue()
   const { isTrusted } = useStaff()
 
   const [distFilter, setDistFilter] = useState('All')
@@ -28,7 +30,6 @@ export default function CatalogueList() {
   const [budgetLimit, setBudgetLimit] = useState(0)
   const [sessionName, setSessionName] = useState('')
 
-  // 🎯 FIX: Changed to store string so it allows you to clear the input while typing
   const [quantities, setQuantities] = useState<{ [key: number]: string }>({})
 
   const distributors = [
@@ -44,8 +45,22 @@ export default function CatalogueList() {
   ]
   const formats = ['All', 'LP', 'CD', '7"', '12"', 'Cassette']
 
+  // 🎯 NEW: Inline Wishlist Mutation
+  const addToWishlistMutation = useMutation({
+    mutationFn: async (master_catalogue_id: number) => {
+      const token = await getAccessTokenSilently()
+      await request
+        .post('/api/v1/wishlist')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ master_catalogue_id })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wishlist'] })
+    },
+  })
+
   const syncOrderContext = async () => {
-    if (!id) return
+    if (!id) return // Bail out if not in a mission
     try {
       const token = await getAccessTokenSilently()
       const orderRes = await request
@@ -72,6 +87,7 @@ export default function CatalogueList() {
 
   useEffect(() => {
     const init = async () => {
+      if (!id) return // Skip fetching session context if browsing globally
       try {
         const token = await getAccessTokenSilently()
         const orderRes = await request
@@ -109,7 +125,6 @@ export default function CatalogueList() {
   }, [hasMore, loading])
 
   const handleAddToOrder = async (item: any) => {
-    // 🎯 FIX: Convert string back to number safely
     const qty = parseInt(quantities[item.id] || '1', 10)
     try {
       const token = await getAccessTokenSilently()
@@ -122,7 +137,6 @@ export default function CatalogueList() {
           ams_price: item.price,
         })
       await syncOrderContext()
-      // Reset input to 1 after adding
       setQuantities((prev) => ({ ...prev, [item.id]: '1' }))
     } catch (err) {
       console.error('Add failed')
@@ -193,140 +207,142 @@ export default function CatalogueList() {
   const percentUsed = Math.min((dbTotal / budgetLimit) * 100, 100)
 
   return (
-    <div className="relative space-y-6 pb-20 pr-80">
+    // 🎯 FIX: Dynamically adapt width depending on Active Session vs Global Browse
+    <div
+      className={`relative space-y-6 pb-20 ${id ? 'pr-80' : 'max-w-6xl mx-auto'}`}
+    >
       <header>
         <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight italic">
-          {sessionName}
+          {sessionName || 'Master Catalogue'}
         </h2>
         <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
-          {distFilter} Records
+          {id ? `${distFilter} Records` : 'Global Inventory Search'}
         </p>
       </header>
 
-      {/* HUD SIDEBAR */}
-      <div className="fixed top-24 right-6 w-72 z-50 h-[calc(100vh-120px)] flex flex-col gap-4">
-        <div className="bg-gray-900 shadow-2xl rounded-[32px] p-6 text-white border-2 border-white/10 shrink-0">
-          <div className="space-y-4">
-            <div>
-              <p className="text-[9px] font-black uppercase opacity-50 tracking-widest">
-                Live Spend
-              </p>
-              <p className="text-2xl font-black">{formatCurrency(dbTotal)}</p>
-            </div>
-            <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
-              <div
-                className="bg-blue-500 h-full transition-all duration-700"
-                style={{ width: `${percentUsed}%` }}
-              />
-            </div>
-            <div className="flex justify-between items-end">
+      {/* 🎯 FIX: HUD SIDEBAR - ONLY SHOWS IF IN ACTIVE ORDER SESSION */}
+      {id && (
+        <div className="fixed top-24 right-6 w-72 z-50 h-[calc(100vh-120px)] flex flex-col gap-4">
+          <div className="bg-gray-900 shadow-2xl rounded-[32px] p-6 text-white border-2 border-white/10 shrink-0">
+            <div className="space-y-4">
               <div>
                 <p className="text-[9px] font-black uppercase opacity-50 tracking-widest">
-                  Limit: ${budgetLimit}
+                  Live Spend
                 </p>
-                <p
-                  className={`text-sm font-bold ${remaining < 0 ? 'text-red-400' : 'text-green-400'}`}
-                >
-                  {formatCurrency(remaining)}
-                </p>
+                <p className="text-2xl font-black">{formatCurrency(dbTotal)}</p>
               </div>
-              <div className="text-right">
-                <p className="text-[9px] font-black uppercase opacity-50 tracking-widest">
-                  Total Qty
-                </p>
-                <p className="text-sm font-bold">{dbCount}</p>
-              </div>
-            </div>
-
-            {isTrusted && (
-              <div className="flex gap-2 pt-2">
-                <button
-                  onClick={handleFinalize}
-                  className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] uppercase py-3 rounded-2xl transition-all shadow-lg active:scale-95"
-                >
-                  Finalize
-                </button>
-                {/* 🎯 FIX: Explicit sizes, added text so it's obvious */}
-                <button
-                  onClick={handleDeleteOrder}
-                  className="flex-none bg-red-50 text-red-600 hover:bg-red-500 hover:text-white font-black text-[10px] uppercase px-4 py-3 rounded-2xl transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
-                  title="Abort Mission"
-                >
-                  <svg
-                    style={{ width: '14px', height: '14px' }}
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  Abort
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Current Manifest Panel */}
-        <div className="bg-white shadow-2xl rounded-[32px] border border-gray-100 flex-1 flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-gray-50 flex justify-between items-center">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Current Manifest
-            </h3>
-            <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-full">
-              {orderItems.length}
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2 space-y-2">
-            {orderItems.length === 0 ? (
-              <p className="text-center text-[10px] text-gray-300 font-bold mt-10 px-4">
-                No items added to this mission yet.
-              </p>
-            ) : (
-              orderItems.map((item) => (
+              <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
                 <div
-                  key={item.item_id}
-                  className="p-3 bg-gray-50 rounded-2xl flex justify-between items-start group"
-                >
-                  <div className="flex-1 min-w-0 pr-2">
-                    <p className="text-[10px] font-black text-gray-900 truncate">
-                      {item.artist}
-                    </p>
-                    <p className="text-[9px] text-gray-500 font-bold truncate leading-tight">
-                      {item.title}
-                    </p>
-                    <p className="text-[9px] text-blue-500 font-black mt-1">
-                      x{item.quantity} • ${item.ams_price}
-                    </p>
-                  </div>
-                  {isTrusted && (
-                    <button
-                      onClick={() => handleRemoveItem(item.item_id)}
-                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                    >
-                      {/* 🎯 Explicit size constraint */}
-                      <svg
-                        style={{ width: '16px', height: '16px' }}
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    </button>
-                  )}
+                  className="bg-blue-500 h-full transition-all duration-700"
+                  style={{ width: `${percentUsed}%` }}
+                />
+              </div>
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-[9px] font-black uppercase opacity-50 tracking-widest">
+                    Limit: ${budgetLimit}
+                  </p>
+                  <p
+                    className={`text-sm font-bold ${remaining < 0 ? 'text-red-400' : 'text-green-400'}`}
+                  >
+                    {formatCurrency(remaining)}
+                  </p>
                 </div>
-              ))
-            )}
+                <div className="text-right">
+                  <p className="text-[9px] font-black uppercase opacity-50 tracking-widest">
+                    Total Qty
+                  </p>
+                  <p className="text-sm font-bold">{dbCount}</p>
+                </div>
+              </div>
+
+              {isTrusted && (
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={handleFinalize}
+                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] uppercase py-3 rounded-2xl transition-all shadow-lg active:scale-95"
+                  >
+                    Finalize
+                  </button>
+                  <button
+                    onClick={handleDeleteOrder}
+                    className="flex-none bg-red-50 text-red-600 hover:bg-red-500 hover:text-white font-black text-[10px] uppercase px-4 py-3 rounded-2xl transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+                    title="Abort Mission"
+                  >
+                    <svg
+                      style={{ width: '14px', height: '14px' }}
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Abort
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white shadow-2xl rounded-[32px] border border-gray-100 flex-1 flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-50 flex justify-between items-center">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                Current Manifest
+              </h3>
+              <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-full">
+                {orderItems.length}
+              </span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              {orderItems.length === 0 ? (
+                <p className="text-center text-[10px] text-gray-300 font-bold mt-10 px-4">
+                  No items added to this mission yet.
+                </p>
+              ) : (
+                orderItems.map((item) => (
+                  <div
+                    key={item.item_id}
+                    className="p-3 bg-gray-50 rounded-2xl flex justify-between items-start group"
+                  >
+                    <div className="flex-1 min-w-0 pr-2">
+                      <p className="text-[10px] font-black text-gray-900 truncate">
+                        {item.artist}
+                      </p>
+                      <p className="text-[9px] text-gray-500 font-bold truncate leading-tight">
+                        {item.title}
+                      </p>
+                      <p className="text-[9px] text-blue-500 font-black mt-1">
+                        x{item.quantity} • ${item.ams_price}
+                      </p>
+                    </div>
+                    {isTrusted && (
+                      <button
+                        onClick={() => handleRemoveItem(item.item_id)}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      >
+                        <svg
+                          style={{ width: '16px', height: '16px' }}
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* COMMAND BAR */}
       <div className="bg-white p-4 rounded-3xl shadow-lg border border-gray-100 flex gap-4 items-center">
@@ -427,7 +443,6 @@ export default function CatalogueList() {
                     <div className="flex items-center justify-center gap-2">
                       {qtyInOrder > 0 && (
                         <div className="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-1 rounded-lg animate-in fade-in zoom-in duration-300 whitespace-nowrap">
-                          {/* 🎯 FIX: Hardcoded SVG size for the tick so it cannot explode in size */}
                           <svg
                             style={{
                               width: '12px',
@@ -449,31 +464,52 @@ export default function CatalogueList() {
                         </div>
                       )}
 
-                      {isTrusted ? (
-                        <>
-                          <input
-                            type="number"
-                            min="1"
-                            value={quantities[item.id] ?? '1'}
-                            onChange={(e) =>
-                              setQuantities({
-                                ...quantities,
-                                [item.id]: e.target.value,
-                              })
-                            }
-                            className="w-10 p-2 bg-gray-50 border-none rounded-xl text-xs font-black text-center outline-none focus:ring-2 focus:ring-blue-100"
-                          />
-                          <button
-                            onClick={() => handleAddToOrder(item)}
-                            className="bg-gray-900 group-hover:bg-blue-600 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase shadow-lg active:scale-95 transition-all"
-                          >
-                            Add
-                          </button>
-                        </>
+                      {/* 🎯 THE SMART LOGIC: Show Wishlist or Add button based on Context */}
+                      {id ? (
+                        isTrusted ? (
+                          <>
+                            <input
+                              type="number"
+                              min="1"
+                              value={quantities[item.id] ?? '1'}
+                              onChange={(e) =>
+                                setQuantities({
+                                  ...quantities,
+                                  [item.id]: e.target.value,
+                                })
+                              }
+                              className="w-10 p-2 bg-gray-50 border-none rounded-xl text-xs font-black text-center outline-none focus:ring-2 focus:ring-blue-100"
+                            />
+                            <button
+                              onClick={() => handleAddToOrder(item)}
+                              className="bg-gray-900 group-hover:bg-blue-600 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase shadow-lg active:scale-95 transition-all"
+                            >
+                              Add
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                            View Only
+                          </span>
+                        )
                       ) : (
-                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                          View Only
-                        </span>
+                        <button
+                          onClick={() => {
+                            addToWishlistMutation.mutate(item.id)
+                            // Provides instant UI feedback to user
+                            const btn = document.getElementById(
+                              `wl-btn-${item.id}`,
+                            )
+                            if (btn) {
+                              btn.innerText = 'Added!'
+                              btn.classList.add('bg-pink-500', 'text-white')
+                            }
+                          }}
+                          id={`wl-btn-${item.id}`}
+                          className="text-[9px] font-black uppercase text-pink-600 hover:text-white border border-pink-200 hover:border-pink-500 bg-pink-50 hover:bg-pink-500 px-3 py-1.5 rounded-xl transition-all whitespace-nowrap shadow-sm active:scale-95"
+                        >
+                          + Wishlist
+                        </button>
                       )}
                     </div>
                   </td>
