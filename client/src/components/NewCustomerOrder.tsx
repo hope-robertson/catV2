@@ -15,18 +15,18 @@ export default function NewCustomerOrder() {
   const navigate = useNavigate()
   const { getAccessTokenSilently } = useAuth0()
 
-  // 📦 Hooks
+  // Hooks
   const { results, loading, performSearch } = useCatalogue()
   const createOrderMutation = useCreateCustomerOrder()
   const createCustomerMutation = useCreateCustomer()
 
-  // 🗃️ State
+  // State
   const [searchTerm, setSearchTerm] = useState('')
-  const [exchangeRate, setExchangeRate] = useState(0.57) // Fallback
+  const [exchangeRate, setExchangeRate] = useState(0.57)
   const [docketItems, setDocketItems] = useState<any[]>([])
   const [quotingItem, setQuotingItem] = useState<any | null>(null)
+  const [phoneError, setPhoneError] = useState<string | null>(null)
 
-  // Non-negotiable Customer Details
   const [customerForm, setCustomerForm] = useState({
     name: '',
     phone: '',
@@ -34,7 +34,32 @@ export default function NewCustomerOrder() {
     notes: '',
   })
 
-  // Fetch store settings on mount to get the exchange rate
+  // NZ Phone Validator
+  const validatePhone = (phone: string) => {
+    // Check for letters
+    if (/[a-zA-Z]/.test(phone)) {
+      setPhoneError('try entering numbers')
+      return false
+    }
+    // Basic NZ check: 0 followed by 8-10 digits, or +64 followed by 8-10 digits
+    const nzPhoneRegex = /^(\+64|0)[0-9]{8,10}$/
+    const sanitized = phone.replace(/\s/g, '')
+
+    if (phone.length > 0 && !nzPhoneRegex.test(sanitized)) {
+      setPhoneError('please enter a valid nz number')
+      return false
+    }
+
+    setPhoneError(null)
+    return true
+  }
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    setCustomerForm({ ...customerForm, phone: val })
+    validatePhone(val)
+  }
+
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -53,14 +78,11 @@ export default function NewCustomerOrder() {
     fetchSettings()
   }, [getAccessTokenSilently])
 
-  // Search trigger
   useEffect(() => {
     performSearch(searchTerm, 'All', 'artist', 'All', 0)
   }, [searchTerm])
 
-  // Adds standard local items straight to the docket
   const handleAddStandardItem = (item: any) => {
-    // Prompt for standard retail price quote
     const manualQuote = window.prompt(
       `Quote retail price for ${item.title} (Cost is $${item.price || 0}):`,
       String(Math.ceil((item.price || 0) * 1.5)),
@@ -82,23 +104,19 @@ export default function NewCustomerOrder() {
     setDocketItems((prev) => prev.filter((_, idx) => idx !== indexToRemove))
   }
 
-  // The Big Submit
   const handleFinalizeDocket = async () => {
-    // Guard Clause: Non-negotiables
-    if (!customerForm.name || !customerForm.phone)
-      return alert('Name and Phone are strictly required.')
+    if (!customerForm.name || !customerForm.phone || phoneError)
+      return alert('Name and a valid Phone number are strictly required.')
     if (docketItems.length === 0)
       return alert('You must add at least one record to the docket.')
 
     try {
-      // 1. Create the customer in the DB first
       const newCustomer = await createCustomerMutation.mutateAsync({
         name: customerForm.name,
         phone: customerForm.phone,
         email: customerForm.email,
       })
 
-      // 2. Attach their ID and items to the Order Docket
       await createOrderMutation.mutateAsync({
         customerId: newCustomer.id,
         notes: customerForm.notes,
@@ -106,13 +124,12 @@ export default function NewCustomerOrder() {
           master_catalogue_id: item.master_catalogue_id,
           quantity: item.quantity,
           quoted_price: item.quoted_price,
-          base_usd_price: item.base_usd_price,
-          exchange_rate_used: item.exchange_rate_used,
+          base_usd_price: item.base_usd_price || null,
+          exchange_rate_used: item.exchange_rate_used || null,
         })),
       })
 
-      // 3. Success! Boot them back to the Hub
-      navigate('/customers')
+      navigate('/customer-orders')
     } catch (err) {
       console.error(err)
       alert('Failed to save customer docket.')
@@ -126,11 +143,11 @@ export default function NewCustomerOrder() {
   const isFormValid =
     customerForm.name.length > 1 &&
     customerForm.phone.length > 5 &&
+    !phoneError &&
     docketItems.length > 0
 
   return (
     <div className="relative max-w-7xl mx-auto space-y-6 pb-20 pr-[380px] pt-10 px-6">
-      {/* LEFT COLUMN: CATALOGUE SEARCH */}
       <div>
         <h2 className="text-4xl font-black text-gray-900 uppercase tracking-tighter italic leading-none">
           Customer Request
@@ -151,7 +168,7 @@ export default function NewCustomerOrder() {
                   Record
                 </th>
                 <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-right tracking-widest">
-                  Supplier Data
+                  Supplier
                 </th>
                 <th className="px-6 py-4 text-[9px] font-black text-gray-400 uppercase text-center tracking-widest">
                   Action
@@ -171,48 +188,39 @@ export default function NewCustomerOrder() {
                     <p className="text-xs font-bold text-gray-500">
                       {item.title}
                     </p>
-                    <span className="inline-block mt-1 bg-gray-200 text-gray-600 px-2 py-0.5 rounded text-[8px] font-black uppercase">
-                      {item.format}
-                    </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
                       {item.source_distributor}
                     </p>
                     <p className="text-sm font-mono font-bold text-gray-900 mt-1">
-                      Cost: ${(item.price ?? 0).toFixed(2)}
+                      ${(item.price ?? 0).toFixed(2)}
                     </p>
                   </td>
                   <td className="px-6 py-4 text-center">
-                    {/* The Quote Logic Button */}
-                    <button
-                      onClick={() =>
-                        item.source_distributor === 'AMS'
-                          ? setQuotingItem(item)
-                          : handleAddStandardItem(item)
-                      }
-                      className={`text-[9px] font-black px-4 py-2 rounded-xl uppercase shadow-md active:scale-95 transition-all ${item.source_distributor === 'AMS' ? 'bg-blue-600 hover:bg-blue-500 text-white' : 'bg-gray-900 hover:bg-gray-700 text-white'}`}
-                    >
-                      {item.source_distributor === 'AMS'
-                        ? 'Quote Import'
-                        : 'Quote Local'}
-                    </button>
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => handleAddStandardItem(item)}
+                        className="bg-gray-900 hover:bg-gray-700 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase shadow-md active:scale-95 transition-all"
+                      >
+                        Quote Local
+                      </button>
+                      <button
+                        onClick={() => setQuotingItem(item)}
+                        className="bg-blue-600 hover:bg-blue-500 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase shadow-md active:scale-95 transition-all"
+                      >
+                        Quote Import
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {loading && (
-            <div className="p-10 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest animate-pulse">
-              Scanning Data...
-            </div>
-          )}
         </div>
       </div>
 
-      {/* RIGHT COLUMN: THE DOCKET (Sticky Sidebar) */}
       <div className="fixed top-10 right-6 w-[340px] z-40 h-[calc(100vh-80px)] flex flex-col gap-4">
-        {/* Customer Details Form */}
         <div className="bg-white shadow-2xl rounded-[32px] border border-gray-100 flex flex-col overflow-hidden shrink-0">
           <div className="bg-gray-900 p-5">
             <h3 className="text-sm font-black uppercase tracking-widest text-white">
@@ -220,64 +228,40 @@ export default function NewCustomerOrder() {
             </h3>
           </div>
           <div className="p-5 space-y-4 bg-gray-50/50">
-            <div>
-              <label className="text-[9px] font-black uppercase text-gray-400 tracking-widest ml-1">
-                Customer Name <span className="text-red-500">*</span>
-              </label>
+            <input
+              placeholder="Customer Name *"
+              value={customerForm.name}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, name: e.target.value })
+              }
+              className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none"
+            />
+
+            <div className="relative">
               <input
-                type="text"
-                required
-                value={customerForm.name}
-                onChange={(e) =>
-                  setCustomerForm({ ...customerForm, name: e.target.value })
-                }
-                className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none font-bold text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-[9px] font-black uppercase text-gray-400 tracking-widest ml-1">
-                Phone Number <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="tel"
-                required
+                placeholder="Phone Number *"
                 value={customerForm.phone}
-                onChange={(e) =>
-                  setCustomerForm({ ...customerForm, phone: e.target.value })
-                }
-                className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none font-bold text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all mt-1"
+                onChange={handlePhoneChange}
+                className={`w-full p-3 bg-white border rounded-xl font-bold text-sm outline-none ${phoneError ? 'border-red-500' : 'border-gray-200'}`}
               />
+              {phoneError && (
+                <p className="text-[9px] font-black text-red-500 uppercase tracking-widest mt-1 ml-1 animate-pulse">
+                  {phoneError}
+                </p>
+              )}
             </div>
-            <div>
-              <label className="text-[9px] font-black uppercase text-gray-400 tracking-widest ml-1">
-                Email (Optional)
-              </label>
-              <input
-                type="email"
-                value={customerForm.email}
-                onChange={(e) =>
-                  setCustomerForm({ ...customerForm, email: e.target.value })
-                }
-                className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none font-bold text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all mt-1"
-              />
-            </div>
-            <div>
-              <label className="text-[9px] font-black uppercase text-gray-400 tracking-widest ml-1">
-                Internal Notes
-              </label>
-              <textarea
-                value={customerForm.notes}
-                onChange={(e) =>
-                  setCustomerForm({ ...customerForm, notes: e.target.value })
-                }
-                className="w-full p-3 bg-white border border-gray-200 rounded-xl outline-none font-bold text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all mt-1 resize-none h-16"
-                placeholder="e.g. Needs it by Friday..."
-              ></textarea>
-            </div>
+
+            <textarea
+              placeholder="Notes..."
+              value={customerForm.notes}
+              onChange={(e) =>
+                setCustomerForm({ ...customerForm, notes: e.target.value })
+              }
+              className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none h-16 resize-none"
+            />
           </div>
         </div>
 
-        {/* Selected Items & Total */}
         <div className="bg-white shadow-2xl rounded-[32px] border border-gray-100 flex-1 flex flex-col overflow-hidden">
           <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-white">
             <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">
@@ -287,53 +271,33 @@ export default function NewCustomerOrder() {
               {docketItems.length}
             </span>
           </div>
-
           <div className="flex-1 overflow-y-auto p-2 bg-gray-50/50">
-            {docketItems.length === 0 ? (
-              <p className="text-center text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-10">
-                Search & Quote a record
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {docketItems.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-white p-3 rounded-2xl border border-gray-100 flex justify-between items-center group shadow-sm"
-                  >
-                    <div className="flex-1 min-w-0 pr-2">
-                      <p className="text-[10px] font-black text-gray-900 truncate">
-                        {item.artist}
-                      </p>
-                      <p className="text-[9px] font-bold text-gray-400 truncate">
-                        {item.title}
-                      </p>
-                      <p className="text-[10px] font-black text-blue-600 mt-1">
-                        Quoted: ${item.quoted_price}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => handleRemoveFromDocket(idx)}
-                      className="text-gray-300 hover:text-red-500 transition-colors p-1"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
+            {docketItems.map((item, idx) => (
+              <div
+                key={idx}
+                className="bg-white p-3 rounded-2xl border border-gray-100 flex justify-between items-center group shadow-sm mb-2"
+              >
+                <div className="min-w-0 pr-2">
+                  <p className="text-[10px] font-black text-gray-900 truncate">
+                    {item.artist}
+                  </p>
+                  <p className="text-[9px] font-bold text-gray-400 truncate">
+                    {item.title}
+                  </p>
+                  <p className="text-[10px] font-black text-blue-600 mt-1">
+                    ${item.quoted_price}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleRemoveFromDocket(idx)}
+                  className="text-gray-300 hover:text-red-500"
+                >
+                  ✕
+                </button>
               </div>
-            )}
+            ))}
           </div>
-
           <div className="bg-gray-900 p-5 shrink-0">
-            <div className="flex justify-between items-end mb-4">
-              <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                Total Value
-              </span>
-              <span className="text-2xl font-black text-white">
-                {formatCurrency(docketTotal)}
-              </span>
-            </div>
-
-            {/* 🎯 Non-Negotiable Enforcement */}
             <button
               onClick={handleFinalizeDocket}
               disabled={!isFormValid || createOrderMutation.isPending}
@@ -347,7 +311,6 @@ export default function NewCustomerOrder() {
         </div>
       </div>
 
-      {/* Renders the Import Calculator when needed */}
       {quotingItem && (
         <AMSQuoteModal
           item={quotingItem}

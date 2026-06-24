@@ -8,7 +8,8 @@ import catalogueRoutes from './routes/catalogue.js'
 import staffRoutes from './routes/staff.js'
 import orderRoutes from './routes/orders.js'
 import adminRoutes from './routes/admin.js'
-import wishlistRoutes from './routes/wishlist.js' // 🎯 NEW: Wishlist Routes
+import customerRoutes from './routes/customers.js'
+import wishlistRoutes from './routes/wishlist.js'
 import { checkJwt } from './utils/auth.js'
 
 const server = express()
@@ -18,13 +19,13 @@ server.use(express.json())
 server.use(express.static(Path.join(Path.resolve(), 'public')))
 
 // API Routes
-// Note: We apply checkJwt to orders and admin to protect shop business data
 server.use('/api/v1/staff', staffRoutes)
 server.use('/api/v1/orders', checkJwt, orderRoutes)
 server.use('/api/v1/admin', checkJwt, adminRoutes)
+server.use('/api/v1/customers', checkJwt, customerRoutes)
 server.use('/api/v1/upload', checkJwt, uploadRouter)
 server.use('/api/v1/catalogue', checkJwt, catalogueRoutes)
-server.use('/api/v1/wishlist', checkJwt, wishlistRoutes) // 🎯 NEW: Mounted Wishlist API
+server.use('/api/v1/wishlist', checkJwt, wishlistRoutes)
 
 server.get('/', (req, res) => {
   res.send('Core Server Is Running!')
@@ -36,7 +37,6 @@ if (process.env.NODE_ENV === 'production') {
   })
 }
 
-// Added the host '0.0.0.0' for better compatibility with Codespaces/Local Network
 server.listen(PORT as number, '0.0.0.0', () => {
-  console.log(`🚀 Server listening on port ${PORT}`)
+  console.log(` Server listening on port ${PORT}`)
 })
