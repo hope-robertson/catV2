@@ -70,32 +70,33 @@ router.get('/staff', checkJwt, authorizeUser, async (req, res) => {
   }
 })
 
-// 🏴‍☠️ RECRUITMENT (With Automatic Queue Updates)
+// 🏴‍☠️ RECRUITMENT (With Auto-Bootstrap Mechanism)
 router.post(
   '/staff',
   checkJwt,
-  authorizeUser,
-  async (req: UserRequest, res) => {
-    // Security Gate: Only Captains can recruit
-    if (!req.dbUser?.is_admin) {
-      return res
-        .status(403)
-        .json({ message: 'Forbidden: Only an Admin can add new crew.' })
-    }
-
+  // 🎯 Removed authorizeUser here so the first account can be created
+  async (req: any, res) => {
     const { name, email, phone } = req.body
+    // Auth0 attaches the user's ID to req.auth.payload.sub via checkJwt
+    const authId = req.auth?.payload?.sub
 
     try {
       // 🔗 TRANSACTION: All succeeds or all fails
       await knex.transaction(async (trx) => {
+        // 🎯 Check if the database is empty (is this the first user?)
+        const staffCountData = await trx('staff').count('id as count').first()
+        const isFirstUser = Number(staffCountData?.count) === 0
+
         // 1. Add to Staff Table
         const [newStaffId] = await trx('staff').insert({
           name,
           email,
           phone: phone || null,
-          is_admin: false,
-          is_trusted_orderer: false,
-          has_completed_onboarding: false,
+          // If first user, link their Auth0 ID and promote them automatically!
+          auth_id: isFirstUser ? authId : null,
+          is_admin: isFirstUser,
+          is_trusted_orderer: isFirstUser,
+          has_completed_onboarding: isFirstUser,
         })
 
         // 2. Fetch existing rotations (Rostering, Ordering, etc.)

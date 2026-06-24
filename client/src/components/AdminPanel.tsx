@@ -31,6 +31,7 @@ export default function AdminPanel() {
   // --- DATA ACTIONS ---
   const fetchData = async () => {
     try {
+      console.log('🔍 Initiating Admin Panel data sync...')
       const token = await getAccessTokenSilently()
       const [settingsRes, staffRes] = await Promise.all([
         request
@@ -40,6 +41,9 @@ export default function AdminPanel() {
           .get('/api/v1/admin/staff')
           .set('Authorization', `Bearer ${token}`),
       ])
+
+      console.log('✅ Staff API Response:', staffRes.body)
+      console.log('✅ Settings API Response:', settingsRes.body)
 
       const settings = settingsRes.body.settings || []
       const wealth =
@@ -54,8 +58,12 @@ export default function AdminPanel() {
       setWealthLevel(wealth)
       setExpenses({ rent, power, internet })
       setStaff(staffRes.body)
-    } catch (err) {
-      console.error('Data retrieval failure:', err)
+    } catch (err: any) {
+      console.error('❌ Data retrieval failure:', err)
+      if (err.response) {
+        console.error('❌ Error Status:', err.response.status)
+        console.error('❌ Error Text:', err.response.text)
+      }
     }
   }
 
@@ -106,16 +114,26 @@ export default function AdminPanel() {
   const handleAddPirate = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      console.log('🚀 Attempting to recruit:', newPirate)
       const token = await getAccessTokenSilently()
-      await request
+      const response = await request
         .post('/api/v1/admin/staff')
         .set('Authorization', `Bearer ${token}`)
         .send(newPirate)
+
+      console.log('✅ Recruitment Success:', response.body)
       setNewPirate({ name: '', email: '' })
       fetchData()
       setIsRecruitModalOpen(false)
-    } catch (err) {
-      alert('Recruitment failed.')
+    } catch (err: any) {
+      console.error('❌ Recruitment API failure:', err)
+      if (err.response) {
+        console.error('❌ Error Status:', err.response.status)
+        console.error('❌ Error Text:', err.response.text)
+      }
+      alert(
+        `Recruitment failed. Status: ${err.response?.status}. Check console for details.`,
+      )
     }
   }
 

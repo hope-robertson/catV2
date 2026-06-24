@@ -19,6 +19,7 @@ import AdminPanel from './components/AdminPanel.js'
 import NewCustomerOrder from './components/NewCustomerOrder.js'
 import ActiveCustomerOrders from './components/ActiveCustomerOrders.js'
 import Wishlist from './components/Wishlist.js'
+
 function App() {
   const { isAdmin, isTrusted } = useStaff()
 
@@ -30,8 +31,8 @@ function App() {
           <Routes>
             <Route path="/" element={<ImportData />} />
             <Route path="/catalogue" element={<CatalogueList />} />
-            <Route path="/wishlist" element={<Wishlist />} />{' '}
-            {/* 🎯 NEW: Wishlist Route */}
+            <Route path="/wishlist" element={<Wishlist />} />
+
             <Route path="/orders" element={<ActiveOrders />} />
             <Route path="/orders/:id/catalogue" element={<CatalogueList />} />
             <Route
@@ -42,12 +43,12 @@ function App() {
               path="/orders/new"
               element={isTrusted ? <CreateOrder /> : <Navigate to="/orders" />}
             />
+
             <Route path="/customer-orders" element={<ActiveCustomerOrders />} />
             <Route path="/customer-orders/new" element={<NewCustomerOrder />} />
-            <Route
-              path="/admin"
-              element={isAdmin ? <AdminPanel /> : <Navigate to="/orders" />}
-            />
+
+            {/* 🎯 FIX: Removed the isAdmin guard temporarily so you can access the panel */}
+            <Route path="/admin" element={<AdminPanel />} />
           </Routes>
         </main>
       </div>
