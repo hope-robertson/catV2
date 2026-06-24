@@ -1,25 +1,26 @@
-/* client/src/index.css */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-body {
-  font-family: 'Inter', sans-serif;
+@theme {
+  /* Define custom spacing/colors consistent with your current design */
+  --color-ride-blue: #2563eb;
+  --color-ride-gray: #f3f4f6;
+
+  /* Custom typography utility settings */
+  --text-label: 0.5625rem; /* 9px */
+  --tracking-wide: 0.1em;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
+@layer components {
+  /* Common UI components based on your snippets */
+  .nav-link {
+    @apply text-gray-400 hover:text-ride-blue font-black text-label uppercase tracking-wide transition-colors;
+  }
 
-th,
-td {
-  border: 1px solid #e2e8f0; /* Tailwind's border-gray-200 */
-  padding: 8px;
-  text-align: left;
-}
+  .btn-primary {
+    @apply bg-gray-900 text-white px-4 py-2 rounded-xl text-label font-black uppercase shadow-lg active:scale-95 transition-all hover:bg-ride-blue;
+  }
 
-th {
-  background-color: #f7fafc; /* Tailwind's bg-gray-50 */
-  font-weight: bold;
+  .card-container {
+    @apply bg-white shadow-md rounded-lg p-4 mb-6 border-b-4 border-ride-blue max-w-5xl mx-auto;
+  }
 }
