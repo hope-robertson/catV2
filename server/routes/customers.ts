@@ -116,6 +116,7 @@ router.get(
   checkPermissions,
   async (req: AuthRequest, res: Response) => {
     try {
+      // 1. Fetch the dockets
       const activeOrders = await knex('customer_orders')
         .join('customers', 'customer_orders.customer_id', 'customers.id')
         .join('staff', 'customer_orders.staff_id', 'staff.id')
@@ -127,7 +128,6 @@ router.get(
           'customers.name as customer_name',
           'customers.phone',
           'staff.name as clerk_name',
-          // Assuming the new migration has been run, you might want to pull these fields too
           'customer_orders.is_texted',
           'customer_orders.is_confirmed',
           'customer_orders.is_ordered',
@@ -137,8 +137,58 @@ router.get(
         )
         .orderBy('customer_orders.created_at', 'desc')
 
-      res.json(activeOrders)
+      // If no orders, return early
+      if (activeOrders.length === 0) {
+        return res.json([])
+      }
+
+      // 2. Fetch the items for these dockets
+      const docketIds = activeOrders.map((o) => o.docket_id)
+      const items = await knex('customer_order_items')
+        .join(
+          'master_catalogue',
+          'customer_order_items.master_catalogue_id',
+          'master_catalogue.id',
+        )
+        .whereIn('customer_order_items.customer_order_id', docketIds)
+        .select(
+          'customer_order_items.customer_order_id',
+          'customer_order_items.quantity',
+          'customer_order_items.quoted_price',
+          'master_catalogue.artist',
+          'master_catalogue.title',
+          'master_catalogue.source_distributor',
+        )
+
+      // 3. Assemble the payload: Attach items, calculate total value, and determine distributor
+      const enrichedOrders = activeOrders.map((order) => {
+        const orderItems = items.filter(
+          (i) => i.customer_order_id === order.docket_id,
+        )
+
+        // Calculate sum of (price * quantity)
+        const total_value = orderItems.reduce(
+          (sum, item) => sum + Number(item.quoted_price) * item.quantity,
+          0,
+        )
+
+        // Assume the docket's primary distributor is based on its first item
+        const distributor =
+          orderItems.length > 0
+            ? orderItems[0].source_distributor || 'AMS'
+            : 'Unknown'
+
+        return {
+          ...order,
+          items: orderItems,
+          total_value,
+          distributor,
+        }
+      })
+
+      res.json(enrichedOrders)
     } catch (error) {
+      console.error('Failed to fetch active customer orders:', error)
       res
         .status(500)
         .json({ message: 'Failed to fetch active customer orders' })

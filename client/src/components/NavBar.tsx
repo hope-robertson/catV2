@@ -11,19 +11,29 @@ export default function NavBar() {
     <nav className="bg-white shadow-md rounded-lg p-4 mb-6 border-b-4 border-blue-600 max-w-5xl mx-auto flex justify-between items-center">
       <div className="flex gap-6 items-center">
         {/* PROCUREMENT SECTION */}
-        <div className="flex gap-4 border-r pr-6">
+        <div className="flex gap-4 border-r pr-6 border-gray-100">
           <Link
             to="/"
             className="text-gray-400 hover:text-blue-600 font-black text-[9px] uppercase tracking-widest"
           >
             Import
           </Link>
+
+          {/* 🎯 RESTORED: Master Catalogue Link */}
+          <Link
+            to="/catalogue"
+            className="text-gray-400 hover:text-blue-600 font-black text-[9px] uppercase tracking-widest"
+          >
+            Catalogue
+          </Link>
+
           <Link
             to="/orders"
             className="text-gray-400 hover:text-blue-600 font-black text-[9px] uppercase tracking-widest"
           >
             Supply Missions
           </Link>
+
           {isTrusted && (
             <Link
               to="/orders/new"
@@ -67,14 +77,14 @@ export default function NavBar() {
             onClick={() =>
               logout({ logoutParams: { returnTo: window.location.origin } })
             }
-            className="text-[9px] font-black uppercase text-gray-400"
+            className="text-[9px] font-black uppercase text-gray-400 hover:text-red-600 transition-colors"
           >
             Exit
           </button>
         ) : (
           <button
             onClick={() => loginWithRedirect()}
-            className="text-[9px] font-black uppercase text-blue-600"
+            className="text-[9px] font-black uppercase text-blue-600 hover:text-blue-800 transition-colors"
           >
             Login
           </button>
