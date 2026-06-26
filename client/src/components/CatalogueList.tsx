@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import SearchBar from './SearchBar.js'
 import { useCatalogue } from '../hooks/useCatalogue.js'
@@ -7,13 +7,6 @@ import { formatCurrency } from '../utils/pricing.js'
 import { useAuth0 } from '@auth0/auth0-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import request from 'superagent'
-
-// Hooks
-import {
-  useCreateCustomerOrder,
-  useCreateCustomer,
-} from '../hooks/useCustomers.js'
-import AMSQuoteModal from './AMSQuoteModal.js'
 
 export default function CatalogueList() {
   const { id } = useParams() // If undefined, we are in Global Mode
@@ -26,11 +19,11 @@ export default function CatalogueList() {
 
   // -- MAIN CATALOGUE STATE --
   const [distFilter, setDistFilter] = useState('All')
-  const [formatFilter, setFormatFilter] = useState('All')
-  const [sortOrder, setSortOrder] = useState('artist')
+  const [formatFilter, setFormatFilter] = useState('LP')
+  const [sortOrder, setSortOrder] = useState('a-z')
   const [searchTerm, setSearchTerm] = useState('')
   const [offset, setOffset] = useState(0)
-  const observerTarget = useRef(null)
+  const observerTarget = useRef<HTMLDivElement>(null)
 
   // -- SHOP ORDER STATE --
   const [orderItems, setOrderItems] = useState<any[]>([])
@@ -39,22 +32,6 @@ export default function CatalogueList() {
   const [budgetLimit, setBudgetLimit] = useState(0)
   const [sessionName, setSessionName] = useState('')
   const [quantities, setQuantities] = useState<{ [key: number]: string }>({})
-
-  // -- 🗃️ FLOATING CUSTOMER DOCKET STATE --
-  const createOrderMutation = useCreateCustomerOrder()
-  const createCustomerMutation = useCreateCustomer()
-  const [globalCustomerDocket, setGlobalCustomerDocket] = useState<any[]>([])
-  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false)
-  const [isCustomerModalMinimized, setIsCustomerModalMinimized] =
-    useState(false)
-  const [quotingItem, setQuotingItem] = useState<any | null>(null)
-  const [exchangeRate, setExchangeRate] = useState(0.57)
-  const [customerForm, setCustomerForm] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    notes: '',
-  })
 
   const distributors = [
     'All',
@@ -67,7 +44,6 @@ export default function CatalogueList() {
     'Sony Music',
     'Warner Music',
   ]
-  const formats = ['All', 'LP', 'CD', '7"', '12"', 'Cassette']
 
   const addToWishlistMutation = useMutation({
     mutationFn: async (master_catalogue_id: number) => {
@@ -113,14 +89,6 @@ export default function CatalogueList() {
     const init = async () => {
       try {
         const token = await getAccessTokenSilently()
-        const settingsRes = await request
-          .get('/api/v1/admin/settings')
-          .set('Authorization', `Bearer ${token}`)
-        const rateObj = settingsRes.body.settings?.find(
-          (s: any) => s.key === 'usd_exchange_rate',
-        )
-        if (rateObj) setExchangeRate(Number(rateObj.value))
-
         if (id) {
           const orderRes = await request
             .get(`/api/v1/orders/${id}`)
@@ -135,14 +103,15 @@ export default function CatalogueList() {
     init()
   }, [id])
 
+  // 🎯 Hardcoded 'artist' prevents SQL crash while fetching search payload
   useEffect(() => {
     setOffset(0)
-    performSearch(searchTerm, distFilter, sortOrder, formatFilter, 0)
-  }, [searchTerm, distFilter, sortOrder, formatFilter])
+    performSearch(searchTerm, distFilter, 'artist', 'All', 0)
+  }, [searchTerm, distFilter])
 
   useEffect(() => {
     if (offset > 0)
-      performSearch(searchTerm, distFilter, sortOrder, formatFilter, offset)
+      performSearch(searchTerm, distFilter, 'artist', 'All', offset)
   }, [offset])
 
   useEffect(() => {
@@ -156,6 +125,33 @@ export default function CatalogueList() {
     if (observerTarget.current) observer.observe(observerTarget.current)
     return () => observer.disconnect()
   }, [hasMore, loading])
+
+  // 🎯 Frontend Filtering & Sorting Logic
+  const processedResults = useMemo(() => {
+    let filtered = [...results]
+
+    if (formatFilter === 'All Vinyl') {
+      filtered = filtered.filter((item) => {
+        const fmt = (item.format || '').toLowerCase()
+        return (
+          fmt.includes('lp') ||
+          fmt.includes('7"') ||
+          fmt.includes('12"') ||
+          fmt.includes('vinyl')
+        )
+      })
+    } else if (formatFilter !== 'All') {
+      filtered = filtered.filter((item) => item.format === formatFilter)
+    }
+
+    filtered.sort((a, b) => {
+      if (sortOrder === 'price-low') return (a.price || 0) - (b.price || 0)
+      if (sortOrder === 'price-high') return (b.price || 0) - (a.price || 0)
+      return (a.artist || '').localeCompare(b.artist || '')
+    })
+
+    return filtered
+  }, [results, formatFilter, sortOrder])
 
   // --- ACTIONS ---
   const handleAddToOrder = async (item: any) => {
@@ -219,68 +215,8 @@ export default function CatalogueList() {
   const handleReset = () => {
     setSearchTerm('')
     setDistFilter('All')
-    setSortOrder('artist')
-    setFormatFilter('All')
-  }
-
-  // --- CUSTOMER DOCKET LOGIC ---
-  const handleAddCustomerItem = (item: any) => {
-    const manualQuote = window.prompt(
-      `Quote retail price for ${item.title} (Cost is $${item.price || 0}):`,
-      String(Math.ceil((item.price || 0) * 1.5)),
-    )
-    if (!manualQuote) return
-
-    setGlobalCustomerDocket((prev) => [
-      ...prev,
-      {
-        ...item,
-        quantity: 1,
-        quoted_price: Number(manualQuote),
-        master_catalogue_id: item.id,
-      },
-    ])
-    setIsCustomerModalOpen(true)
-    setIsCustomerModalMinimized(false)
-  }
-
-  const handleSaveQuote = (quotedItem: any) => {
-    setGlobalCustomerDocket((prev) => [...prev, quotedItem])
-    setIsCustomerModalOpen(true)
-    setIsCustomerModalMinimized(false)
-  }
-
-  const handleFinalizeCustomerDocket = async () => {
-    if (!customerForm.name || !customerForm.phone)
-      return alert('Name and Phone are strictly required.')
-
-    try {
-      const newCustomer = await createCustomerMutation.mutateAsync({
-        name: customerForm.name,
-        phone: customerForm.phone,
-        email: customerForm.email,
-      })
-
-      await createOrderMutation.mutateAsync({
-        customerId: newCustomer.id,
-        notes: customerForm.notes,
-        items: globalCustomerDocket.map((item) => ({
-          master_catalogue_id: item.master_catalogue_id,
-          quantity: item.quantity,
-          quoted_price: item.quoted_price,
-          base_usd_price: item.base_usd_price,
-          exchange_rate_used: item.exchange_rate_used,
-        })),
-      })
-
-      alert('Customer Docket Successfully Created!')
-      setGlobalCustomerDocket([])
-      setCustomerForm({ name: '', phone: '', email: '', notes: '' })
-      setIsCustomerModalOpen(false)
-    } catch (err) {
-      console.error(err)
-      alert('Failed to save customer docket.')
-    }
+    setSortOrder('a-z')
+    setFormatFilter('LP')
   }
 
   const getItemQuantityInOrder = (masterId: number) => {
@@ -292,6 +228,190 @@ export default function CatalogueList() {
     <div
       className={`relative space-y-6 pb-20 ${id ? 'pr-80' : 'max-w-6xl mx-auto'}`}
     >
+      <header>
+        <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight italic">
+          {sessionName || 'Master Catalogue'}
+        </h2>
+        <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">
+          {id ? `${distFilter} Records` : 'Global Inventory Search'}
+        </p>
+      </header>
+
+      {/* SHOP ORDER HUD SIDEBAR */}
+      {id && (
+        <div className="fixed top-24 right-6 w-72 z-40 h-[calc(100vh-120px)] flex flex-col gap-4">
+          <div className="bg-gray-900 shadow-2xl rounded-[32px] p-6 text-white border-2 border-white/10 shrink-0">
+            <div className="space-y-4">
+              <div>
+                <p className="text-[9px] font-black uppercase opacity-50 tracking-widest">
+                  Live Spend
+                </p>
+                <p className="text-2xl font-black">{formatCurrency(dbTotal)}</p>
+              </div>
+              <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                <div
+                  className="bg-blue-500 h-full transition-all duration-700"
+                  style={{
+                    width: `${Math.min((dbTotal / budgetLimit) * 100, 100)}%`,
+                  }}
+                />
+              </div>
+              <div className="flex justify-between items-end">
+                <div>
+                  <p className="text-[9px] font-black uppercase opacity-50 tracking-widest">
+                    Limit: ${budgetLimit}
+                  </p>
+                  <p
+                    className={`text-sm font-bold ${budgetLimit - dbTotal < 0 ? 'text-red-400' : 'text-green-400'}`}
+                  >
+                    {formatCurrency(budgetLimit - dbTotal)}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[9px] font-black uppercase opacity-50 tracking-widest">
+                    Total Qty
+                  </p>
+                  <p className="text-sm font-bold">{dbCount}</p>
+                </div>
+              </div>
+
+              {isTrusted && (
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={handleFinalize}
+                    className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] uppercase py-3 rounded-2xl transition-all shadow-lg active:scale-95"
+                  >
+                    Finalize
+                  </button>
+                  <button
+                    onClick={handleDeleteOrder}
+                    className="flex-none bg-red-50 text-red-600 hover:bg-red-500 hover:text-white font-black text-[10px] uppercase px-4 py-3 rounded-2xl transition-all shadow-sm active:scale-95 flex items-center justify-center gap-1.5"
+                    title="Abort Mission"
+                  >
+                    <svg
+                      style={{ width: '14px', height: '14px' }}
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    Abort
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white shadow-2xl rounded-[32px] border border-gray-100 flex-1 flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-50 flex justify-between items-center">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                Current Manifest
+              </h3>
+              <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-full">
+                {orderItems.length}
+              </span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              {orderItems.length === 0 ? (
+                <p className="text-center text-[10px] text-gray-300 font-bold mt-10 px-4">
+                  No items added to this mission yet.
+                </p>
+              ) : (
+                orderItems.map((item) => (
+                  <div
+                    key={item.item_id}
+                    className="p-3 bg-gray-50 rounded-2xl flex justify-between items-start group"
+                  >
+                    <div className="flex-1 min-w-0 pr-2">
+                      <p className="text-[10px] font-black text-gray-900 truncate">
+                        {item.artist}
+                      </p>
+                      <p className="text-[9px] text-gray-500 font-bold truncate leading-tight">
+                        {item.title}
+                      </p>
+                      <p className="text-[9px] text-blue-500 font-black mt-1">
+                        x{item.quantity} • ${item.ams_price}
+                      </p>
+                    </div>
+                    {isTrusted && (
+                      <button
+                        onClick={() => handleRemoveItem(item.item_id)}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      >
+                        <svg
+                          style={{ width: '16px', height: '16px' }}
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🎯 COMMAND BAR WITH ALL DROPDOWNS */}
+      <div className="bg-white p-4 rounded-3xl shadow-lg border border-gray-100 flex gap-4 items-center">
+        <div className="flex-1">
+          <SearchBar onSearch={(q) => setSearchTerm(q)} />
+        </div>
+        <button
+          onClick={handleReset}
+          className="bg-gray-100 hover:bg-gray-200 text-gray-500 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors"
+        >
+          Reset
+        </button>
+
+        <select
+          value={distFilter}
+          onChange={(e) => setDistFilter(e.target.value)}
+          className="bg-gray-50 border-none text-gray-700 py-2 px-3 rounded-xl font-bold text-[10px] uppercase tracking-widest outline-none"
+        >
+          {distributors.map((d) => (
+            <option key={d} value={d}>
+              {d === 'All' ? 'All Distributors' : d}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={formatFilter}
+          onChange={(e) => setFormatFilter(e.target.value)}
+          className="bg-gray-50 border-none text-gray-700 py-2 px-3 rounded-xl font-bold text-[10px] uppercase tracking-widest outline-none"
+        >
+          <option value="All Vinyl">All Vinyl</option>
+          <option value="LP">LP</option>
+          <option value='7"'>7"</option>
+          <option value='12"'>12"</option>
+          <option value="CD">CD</option>
+          <option value="Cassette">Cassette</option>
+          <option value="All">Everything</option>
+        </select>
+
+        <select
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value)}
+          className="bg-gray-50 border-none text-blue-600 py-2 px-3 rounded-xl font-bold text-[10px] uppercase tracking-widest outline-none"
+        >
+          <option value="a-z">A-Z</option>
+          <option value="price-low">Price Low-High</option>
+          <option value="price-high">Price High-Low</option>
+        </select>
+      </div>
+
       {/* MAIN DATA TABLE */}
       <div className="bg-white shadow-xl rounded-[40px] overflow-hidden border border-gray-100">
         <table className="min-w-full divide-y divide-gray-100">
@@ -309,13 +429,16 @@ export default function CatalogueList() {
               <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-right tracking-widest">
                 Wholesale
               </th>
+              <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-right tracking-widest">
+                Est. Retail
+              </th>
               <th className="px-6 py-4 text-[9px] font-black text-gray-400 uppercase text-center tracking-widest">
                 Action
               </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
-            {results.map((item) => {
+            {processedResults.map((item) => {
               const qtyInOrder = getItemQuantityInOrder(item.id)
               return (
                 <tr
@@ -341,6 +464,9 @@ export default function CatalogueList() {
                   </td>
                   <td className="px-6 py-4 text-right text-xs font-mono font-bold text-gray-400">
                     ${(item.price ?? 0).toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 text-right text-sm font-mono font-black text-gray-900">
+                    ${Math.ceil((item.price ?? 0) * 1.5).toFixed(2)}
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-center gap-2">
@@ -382,22 +508,6 @@ export default function CatalogueList() {
                         )
                       ) : (
                         <div className="flex flex-col items-center gap-1.5 w-full max-w-[90px]">
-                          {isTrusted && (
-                            <>
-                              <button
-                                onClick={() => setQuotingItem(item)}
-                                className="text-[9px] w-full font-black uppercase text-purple-600 hover:text-white border border-purple-200 hover:border-purple-500 bg-purple-50 hover:bg-purple-500 px-3 py-1.5 rounded-xl transition-all shadow-sm active:scale-95"
-                              >
-                                + Import Quote
-                              </button>
-                              <button
-                                onClick={() => handleAddCustomerItem(item)}
-                                className="text-[9px] w-full font-black uppercase text-blue-600 hover:text-white border border-blue-200 hover:border-blue-500 bg-blue-50 hover:bg-blue-500 px-3 py-1.5 rounded-xl transition-all shadow-sm active:scale-95"
-                              >
-                                + Local Quote
-                              </button>
-                            </>
-                          )}
                           <button
                             onClick={() =>
                               addToWishlistMutation.mutate(item.id)
@@ -413,73 +523,21 @@ export default function CatalogueList() {
                 </tr>
               )
             })}
+
+            {processedResults.length === 0 && !loading && (
+              <tr>
+                <td
+                  colSpan={6}
+                  className="px-6 py-10 text-center text-gray-400 text-[10px] font-black uppercase tracking-widest"
+                >
+                  No items found matching those filters.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
+        <div ref={observerTarget} className="h-10 w-full" />
       </div>
-
-      {/* MODALS & WIDGETS */}
-      {quotingItem && (
-        <AMSQuoteModal
-          item={quotingItem}
-          exchangeRate={exchangeRate}
-          onClose={() => setQuotingItem(null)}
-          onSaveQuote={handleSaveQuote}
-        />
-      )}
-
-      {/* FLOATING CUSTOMER DOCKET WIDGET */}
-      {isCustomerModalOpen && (
-        <div
-          className={`fixed z-[100] right-6 transition-all duration-300 shadow-2xl flex flex-col border-[2px] border-white border-r-[#404040] border-b-[#404040] bg-[#C0C0C0] ${isCustomerModalMinimized ? 'bottom-0 w-[280px] h-8' : 'bottom-6 w-[340px] max-h-[85vh]'}`}
-        >
-          <div
-            className="bg-[#000080] text-white px-2 py-1 flex justify-between items-center cursor-pointer select-none"
-            onClick={() =>
-              setIsCustomerModalMinimized(!isCustomerModalMinimized)
-            }
-          >
-            <span className="font-bold text-[10px] tracking-widest truncate pr-2">
-              📝 Cust. Docket ({globalCustomerDocket.length})
-            </span>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                setIsCustomerModalOpen(false)
-              }}
-              className="text-white"
-            >
-              X
-            </button>
-          </div>
-
-          {!isCustomerModalMinimized && (
-            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
-              <input
-                placeholder="Customer Name *"
-                value={customerForm.name}
-                onChange={(e) =>
-                  setCustomerForm({ ...customerForm, name: e.target.value })
-                }
-                className="w-full text-xs font-bold p-1.5 border border-gray-300 outline-none"
-              />
-              <input
-                placeholder="Phone Number *"
-                value={customerForm.phone}
-                onChange={(e) =>
-                  setCustomerForm({ ...customerForm, phone: e.target.value })
-                }
-                className="w-full text-xs font-bold p-1.5 border border-gray-300 outline-none"
-              />
-              <button
-                onClick={handleFinalizeCustomerDocket}
-                className="w-full bg-[#C0C0C0] border-2 border-white border-r-gray-600 border-b-gray-600 font-bold py-2"
-              >
-                Lock Docket
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
@@ -9,6 +9,7 @@ import {
 } from '../hooks/useCustomers.js'
 import SearchBar from './SearchBar.js'
 import AMSQuoteModal from './AMSQuoteModal.js'
+import FloatingCustomerDocket from './FloatingCustomerDocket.js'
 import { formatCurrency } from '../utils/pricing.js'
 
 export default function NewCustomerOrder() {
@@ -27,6 +28,15 @@ export default function NewCustomerOrder() {
   const [quotingItem, setQuotingItem] = useState<any | null>(null)
   const [phoneError, setPhoneError] = useState<string | null>(null)
 
+  // Modal State
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(true)
+  const [isCustomerModalMinimized, setIsCustomerModalMinimized] =
+    useState(false)
+
+  // 識 UI Filters
+  const [formatFilter, setFormatFilter] = useState('All Vinyl')
+  const [sortOrder, setSortOrder] = useState('a-z')
+
   const [customerForm, setCustomerForm] = useState({
     name: '',
     phone: '',
@@ -34,7 +44,7 @@ export default function NewCustomerOrder() {
     notes: '',
   })
 
-  // NZ Phone Validator
+  // 識 NZ Phone Validator
   const validatePhone = (phone: string) => {
     // Check for letters
     if (/[a-zA-Z]/.test(phone)) {
@@ -78,9 +88,39 @@ export default function NewCustomerOrder() {
     fetchSettings()
   }, [getAccessTokenSilently])
 
+  // 🎯 Hardcoded 'artist' prevents SQL crash while fetching search payload
   useEffect(() => {
     performSearch(searchTerm, 'All', 'artist', 'All', 0)
   }, [searchTerm])
+
+  // 識 Filtered and Sorted Results
+  const processedResults = useMemo(() => {
+    let filtered = [...results]
+
+    // Format filtering logic
+    if (formatFilter === 'All Vinyl') {
+      filtered = filtered.filter((item) => {
+        const fmt = (item.format || '').toLowerCase()
+        return (
+          fmt.includes('lp') ||
+          fmt.includes('7"') ||
+          fmt.includes('12"') ||
+          fmt.includes('vinyl')
+        )
+      })
+    } else if (formatFilter !== 'All') {
+      filtered = filtered.filter((item) => item.format === formatFilter)
+    }
+
+    // Sorting logic
+    filtered.sort((a, b) => {
+      if (sortOrder === 'price-low') return (a.price || 0) - (b.price || 0)
+      if (sortOrder === 'price-high') return (b.price || 0) - (a.price || 0)
+      return (a.artist || '').localeCompare(b.artist || '') // Default A-Z
+    })
+
+    return filtered
+  }, [results, formatFilter, sortOrder])
 
   const handleAddStandardItem = (item: any) => {
     const manualQuote = window.prompt(
@@ -98,6 +138,7 @@ export default function NewCustomerOrder() {
         master_catalogue_id: item.id,
       },
     ])
+    setIsCustomerModalOpen(true)
   }
 
   const handleRemoveFromDocket = (indexToRemove: number) => {
@@ -136,18 +177,8 @@ export default function NewCustomerOrder() {
     }
   }
 
-  const docketTotal = docketItems.reduce(
-    (sum, item) => sum + item.quoted_price * item.quantity,
-    0,
-  )
-  const isFormValid =
-    customerForm.name.length > 1 &&
-    customerForm.phone.length > 5 &&
-    !phoneError &&
-    docketItems.length > 0
-
   return (
-    <div className="relative max-w-7xl mx-auto space-y-6 pb-20 pr-[380px] pt-10 px-6">
+    <div className="relative max-w-7xl mx-auto space-y-6 pb-20 pt-10 px-6">
       <div>
         <h2 className="text-4xl font-black text-gray-900 uppercase tracking-tighter italic leading-none">
           Customer Request
@@ -156,8 +187,38 @@ export default function NewCustomerOrder() {
           Search & Quote records
         </p>
 
-        <div className="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 mb-6">
-          <SearchBar onSearch={setSearchTerm} />
+        {/* 識 Dropdowns and Search Bar Layout Adjusted */}
+        <div className="mb-6 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center">
+          <div className="flex-1">
+            {/* 🎯 Aligned with updated SearchBar signature */}
+            <SearchBar onSearch={(q) => setSearchTerm(q)} />
+          </div>
+
+          <div className="flex gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100 h-full items-center">
+            <select
+              value={formatFilter}
+              onChange={(e) => setFormatFilter(e.target.value)}
+              className="bg-gray-50 border border-gray-200 text-gray-700 py-3 px-4 rounded-lg font-bold text-[10px] uppercase tracking-widest outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            >
+              <option value="All Vinyl">All Vinyl</option>
+              <option value="LP">LP</option>
+              <option value='7"'>7"</option>
+              <option value='12"'>12"</option>
+              <option value="CD">CD</option>
+              <option value="Cassette">Cassette</option>
+              <option value="All">Everything</option>
+            </select>
+
+            <select
+              value={sortOrder}
+              onChange={(e) => setSortOrder(e.target.value)}
+              className="bg-gray-50 border border-gray-200 text-blue-600 py-3 px-4 rounded-lg font-bold text-[10px] uppercase tracking-widest outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+            >
+              <option value="a-z">A-Z</option>
+              <option value="price-low">Price Low-High</option>
+              <option value="price-high">Price High-Low</option>
+            </select>
+          </div>
         </div>
 
         <div className="bg-white shadow-xl rounded-[40px] overflow-hidden border border-gray-100">
@@ -168,7 +229,7 @@ export default function NewCustomerOrder() {
                   Record
                 </th>
                 <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-right tracking-widest">
-                  Supplier
+                  Supplier Data
                 </th>
                 <th className="px-6 py-4 text-[9px] font-black text-gray-400 uppercase text-center tracking-widest">
                   Action
@@ -176,7 +237,7 @@ export default function NewCustomerOrder() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {results.slice(0, 30).map((item) => (
+              {processedResults.slice(0, 30).map((item) => (
                 <tr
                   key={item.id}
                   className="hover:bg-gray-50 transition-colors"
@@ -188,137 +249,81 @@ export default function NewCustomerOrder() {
                     <p className="text-xs font-bold text-gray-500">
                       {item.title}
                     </p>
+                    <span className="inline-block mt-1 bg-gray-200 text-gray-600 px-2 py-0.5 rounded text-[8px] font-black uppercase">
+                      {item.format}
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
                       {item.source_distributor}
                     </p>
                     <p className="text-sm font-mono font-bold text-gray-900 mt-1">
-                      ${(item.price ?? 0).toFixed(2)}
+                      Cost: ${(item.price ?? 0).toFixed(2)}
                     </p>
                   </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex flex-col gap-2">
+                  <td className="px-6 py-4">
+                    {/* Uniform Buttons: Local on Top */}
+                    <div className="flex flex-col items-center gap-1.5 w-full max-w-[90px] mx-auto">
                       <button
                         onClick={() => handleAddStandardItem(item)}
-                        className="bg-gray-900 hover:bg-gray-700 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase shadow-md active:scale-95 transition-all"
+                        className="w-full text-[9px] font-black uppercase text-blue-600 hover:text-white border border-blue-200 hover:border-blue-500 bg-blue-50 hover:bg-blue-500 px-3 py-1.5 rounded-xl transition-all shadow-sm active:scale-95"
                       >
-                        Quote Local
+                        + Local Quote
                       </button>
                       <button
                         onClick={() => setQuotingItem(item)}
-                        className="bg-blue-600 hover:bg-blue-500 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase shadow-md active:scale-95 transition-all"
+                        className="w-full text-[9px] font-black uppercase text-purple-600 hover:text-white border border-purple-200 hover:border-purple-500 bg-purple-50 hover:bg-purple-500 px-3 py-1.5 rounded-xl transition-all shadow-sm active:scale-95"
                       >
-                        Quote Import
+                        + Import Quote
                       </button>
                     </div>
                   </td>
                 </tr>
               ))}
+              {processedResults.length === 0 && !loading && (
+                <tr>
+                  <td
+                    colSpan={3}
+                    className="px-6 py-10 text-center text-gray-400 text-[10px] font-black uppercase tracking-widest"
+                  >
+                    No items found matching those filters.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
-        </div>
-      </div>
-
-      <div className="fixed top-10 right-6 w-[340px] z-40 h-[calc(100vh-80px)] flex flex-col gap-4">
-        <div className="bg-white shadow-2xl rounded-[32px] border border-gray-100 flex flex-col overflow-hidden shrink-0">
-          <div className="bg-gray-900 p-5">
-            <h3 className="text-sm font-black uppercase tracking-widest text-white">
-              Docket Details
-            </h3>
-          </div>
-          <div className="p-5 space-y-4 bg-gray-50/50">
-            <input
-              placeholder="Customer Name *"
-              value={customerForm.name}
-              onChange={(e) =>
-                setCustomerForm({ ...customerForm, name: e.target.value })
-              }
-              className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none"
-            />
-
-            <div className="relative">
-              <input
-                placeholder="Phone Number *"
-                value={customerForm.phone}
-                onChange={handlePhoneChange}
-                className={`w-full p-3 bg-white border rounded-xl font-bold text-sm outline-none ${phoneError ? 'border-red-500' : 'border-gray-200'}`}
-              />
-              {phoneError && (
-                <p className="text-[9px] font-black text-red-500 uppercase tracking-widest mt-1 ml-1 animate-pulse">
-                  {phoneError}
-                </p>
-              )}
+          {loading && (
+            <div className="p-10 text-center text-[10px] font-black text-gray-400 uppercase tracking-widest animate-pulse">
+              Scanning Data...
             </div>
-
-            <textarea
-              placeholder="Notes..."
-              value={customerForm.notes}
-              onChange={(e) =>
-                setCustomerForm({ ...customerForm, notes: e.target.value })
-              }
-              className="w-full p-3 bg-white border border-gray-200 rounded-xl font-bold text-sm outline-none h-16 resize-none"
-            />
-          </div>
-        </div>
-
-        <div className="bg-white shadow-2xl rounded-[32px] border border-gray-100 flex-1 flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-white">
-            <h3 className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-              Requested Items
-            </h3>
-            <span className="bg-blue-100 text-blue-600 text-[9px] font-black px-2 py-0.5 rounded-full">
-              {docketItems.length}
-            </span>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2 bg-gray-50/50">
-            {docketItems.map((item, idx) => (
-              <div
-                key={idx}
-                className="bg-white p-3 rounded-2xl border border-gray-100 flex justify-between items-center group shadow-sm mb-2"
-              >
-                <div className="min-w-0 pr-2">
-                  <p className="text-[10px] font-black text-gray-900 truncate">
-                    {item.artist}
-                  </p>
-                  <p className="text-[9px] font-bold text-gray-400 truncate">
-                    {item.title}
-                  </p>
-                  <p className="text-[10px] font-black text-blue-600 mt-1">
-                    ${item.quoted_price}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleRemoveFromDocket(idx)}
-                  className="text-gray-300 hover:text-red-500"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-          <div className="bg-gray-900 p-5 shrink-0">
-            <button
-              onClick={handleFinalizeDocket}
-              disabled={!isFormValid || createOrderMutation.isPending}
-              className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all shadow-xl ${isFormValid ? 'bg-green-500 hover:bg-green-400 text-white active:scale-95' : 'bg-gray-800 text-gray-600 cursor-not-allowed'}`}
-            >
-              {createOrderMutation.isPending
-                ? 'Saving...'
-                : 'Save & Lock Docket'}
-            </button>
-          </div>
+          )}
         </div>
       </div>
+
+      <FloatingCustomerDocket
+        isOpen={isCustomerModalOpen}
+        isMinimized={isCustomerModalMinimized}
+        onToggleMinimize={() =>
+          setIsCustomerModalMinimized(!isCustomerModalMinimized)
+        }
+        onClose={() => setIsCustomerModalOpen(false)}
+        docketItems={docketItems}
+        onRemoveItem={handleRemoveFromDocket}
+        customerForm={customerForm}
+        setCustomerForm={setCustomerForm}
+        onFinalize={handleFinalizeDocket}
+        isPending={createOrderMutation.isPending}
+      />
 
       {quotingItem && (
         <AMSQuoteModal
           item={quotingItem}
           exchangeRate={exchangeRate}
           onClose={() => setQuotingItem(null)}
-          onSaveQuote={(quotedItem) =>
+          onSaveQuote={(quotedItem) => {
             setDocketItems((prev) => [...prev, quotedItem])
-          }
+            setIsCustomerModalOpen(true)
+          }}
         />
       )}
     </div>

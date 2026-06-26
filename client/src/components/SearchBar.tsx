@@ -1,22 +1,20 @@
 import React, { useState } from 'react'
 
 interface Props {
-  onSearch: (query: string, filter: string) => void
+  onSearch: (query: string) => void
 }
 
 export default function SearchBar({ onSearch }: Props) {
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState('all')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    onSearch(query, filter)
+    onSearch(query)
   }
 
   const handleReset = () => {
     setQuery('')
-    setFilter('all')
-    onSearch('', 'all') // Restores the full list
+    onSearch('') // Restores the full list
   }
 
   return (
@@ -27,7 +25,7 @@ export default function SearchBar({ onSearch }: Props) {
       <div className="flex-grow relative">
         <input
           type="text"
-          placeholder="Artist, Title, or Barcode..."
+          placeholder="Search Catalogue..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
@@ -42,17 +40,6 @@ export default function SearchBar({ onSearch }: Props) {
           </button>
         )}
       </div>
-
-      <select
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        className="px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-700 font-medium focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
-      >
-        <option value="all">All Fields</option>
-        <option value="artist">Artist</option>
-        <option value="title">Title</option>
-        <option value="barcode">Barcode</option>
-      </select>
 
       <button
         type="submit"
