@@ -2,14 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
-import { useQueryClient } from '@tanstack/react-query'
 import { formatCurrency } from '../utils/pricing.js'
 
 export default function CreateOrder() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { getAccessTokenSilently } = useAuth0()
-  const queryClient = useQueryClient()
 
   const preselectedDist = searchParams.get('dist') || 'Southbound'
 
@@ -57,7 +55,7 @@ export default function CreateOrder() {
     )
     const items = dockets.flatMap((d) => d.items || [])
     const total = items.reduce(
-      (sum, item) => sum + Number(item.price || 0) * item.quantity, // 🎯 Fix: use wholesale price
+      (sum, item) => sum + Number(item.price || 0) * item.quantity,
       0,
     )
     return { matchedDockets: dockets, matchedItems: items, matchedTotal: total }
@@ -102,18 +100,6 @@ export default function CreateOrder() {
               })
           }
         }
-
-        // 3. Flag those customer dockets as 'Ordered' so they clear from the demand screen!
-        for (const docket of matchedDockets) {
-          await request
-            .patch(`/api/v1/customers/orders/${docket.docket_id}`)
-            .set('Authorization', `Bearer ${token}`)
-            .send({ is_ordered: true })
-        }
-
-        // 🎯 FIX: Force React Query to wipe its cache of customer orders
-        // so the demand screen accurately reflects the newly ordered items when we navigate back
-        queryClient.invalidateQueries({ queryKey: ['customerOrders'] })
       }
 
       // Navigate to the catalogue to finish manually picking

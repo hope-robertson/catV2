@@ -65,8 +65,9 @@ export default function ActiveOrders() {
                 <span className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
                   {order.distributor}
                 </span>
+                {/* 🎯 FIX: Prioritize order.name over Session #id */}
                 <h3 className="text-2xl font-black text-gray-800 mt-3 tracking-tight">
-                  Session #{order.id}
+                  {order.name ? order.name : `Session #${order.id}`}
                 </h3>
                 <p className="text-[10px] font-bold text-gray-400 uppercase mt-1">
                   Opened: {new Date(order.created_at).toLocaleDateString()}
