@@ -43,15 +43,37 @@ export default function ActiveCustomerOrders() {
     },
   })
 
+  // 🎯 New Delete Mutation
+  const deleteOrderMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const token = await getAccessTokenSilently()
+      await request
+        .delete(`/api/v1/customers/orders/${id}`)
+        .set('Authorization', `Bearer ${token}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['customerOrders'] })
+    },
+  })
+
   const handleToggle = (id: number, field: string, currentValue: boolean) => {
     toggleStatusMutation.mutate({ id, field, value: !currentValue })
+  }
+
+  const handleDelete = (id: number) => {
+    if (
+      window.confirm(
+        'Are you sure you want to permanently delete this customer order? This cannot be undone.',
+      )
+    ) {
+      deleteOrderMutation.mutate(id)
+    }
   }
 
   const distributorGroups = useMemo(() => {
     const groups: Record<string, any> = {}
 
     orders.forEach((order: any) => {
-      // Skip calculating value if it's already ordered or on the backburner
       if (order.is_backburner || order.is_ordered) return
 
       const dist = order.distributor || 'Unknown'
@@ -87,7 +109,6 @@ export default function ActiveCustomerOrders() {
           </p>
         </header>
 
-        {}
         {Object.keys(distributorGroups).length === 0 ? (
           <div className="bg-white p-10 rounded-3xl border-2 border-dashed border-gray-200 text-center shadow-sm">
             <p className="text-xs font-black uppercase text-gray-400 tracking-widest">
@@ -126,22 +147,28 @@ export default function ActiveCustomerOrders() {
                       </p>
                     </div>
 
-                    {isReady ? (
+                    {/* 🎯 Always allows initialization with dynamic styling */}
+                    <div className="mt-auto space-y-3">
+                      {!isReady && (
+                        <div className="text-[10px] font-bold text-amber-600 uppercase bg-amber-50 py-2.5 rounded-xl text-center border border-amber-100">
+                          Shortfall: ${formatCurrency(THRESHOLD - data.total)}
+                        </div>
+                      )}
                       <button
                         onClick={() =>
                           navigate(
                             `/orders/new?dist=${encodeURIComponent(dist)}`,
                           )
                         }
-                        className="w-full bg-green-600 hover:bg-green-500 text-white py-4 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg active:scale-95"
+                        className={`w-full py-4 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all shadow-lg active:scale-95 ${
+                          isReady
+                            ? 'bg-green-600 hover:bg-green-500 text-white'
+                            : 'bg-gray-900 hover:bg-gray-800 text-white'
+                        }`}
                       >
-                        Initialize Mission
+                        {isReady ? 'Initialize Mission' : 'Force Initialize'}
                       </button>
-                    ) : (
-                      <div className="text-[10px] font-bold text-gray-400 uppercase bg-gray-50 py-3 rounded-xl text-center border border-gray-100">
-                        Need ${formatCurrency(THRESHOLD - data.total)} more
-                      </div>
-                    )}
+                    </div>
                   </div>
                 )
               },
@@ -150,7 +177,6 @@ export default function ActiveCustomerOrders() {
         )}
       </section>
 
-      {}
       <section>
         <div className="flex justify-between items-end mb-6">
           <h3 className="text-xl font-black uppercase tracking-widest text-gray-900">
@@ -161,7 +187,6 @@ export default function ActiveCustomerOrders() {
           </p>
         </div>
 
-        {}
         <div className="bg-white shadow-xl rounded-[40px] overflow-hidden border border-gray-100">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -212,10 +237,12 @@ export default function ActiveCustomerOrders() {
                   >
                     BB
                   </th>
+                  <th className="px-4 py-5 text-[9px] font-black text-gray-500 uppercase tracking-widest text-center border-l border-white/10">
+                    DEL
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {}
                 {orders.map((order: any) => (
                   <tr
                     key={order.docket_id}
@@ -235,7 +262,6 @@ export default function ActiveCustomerOrders() {
                         </p>
                       </div>
 
-                      {}
                       {order.items && order.items.length > 0 && (
                         <div className="space-y-1.5 border-t border-gray-100 pt-3">
                           {order.items.map((item: any, idx: number) => (
@@ -264,7 +290,6 @@ export default function ActiveCustomerOrders() {
                       {order.clerk_name}
                     </td>
 
-                    {}
                     <td className="px-4 py-4 text-center border-l border-gray-50 align-top pt-5">
                       <input
                         type="checkbox"
@@ -349,14 +374,37 @@ export default function ActiveCustomerOrders() {
                         className="w-5 h-5 accent-red-500 cursor-pointer"
                       />
                     </td>
+                    <td className="px-4 py-4 text-center border-l border-gray-50 align-top pt-5">
+                      <button
+                        onClick={() => handleDelete(order.docket_id)}
+                        disabled={deleteOrderMutation.isPending}
+                        className="text-gray-300 hover:text-red-500 transition-colors"
+                        title="Delete Order"
+                      >
+                        <svg
+                          style={{
+                            width: '18px',
+                            height: '18px',
+                            margin: '0 auto',
+                          }}
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    </td>
                   </tr>
                 ))}
 
-                {}
                 {orders.length === 0 && (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={10}
                       className="px-6 py-12 text-center text-[10px] font-black uppercase tracking-widest text-gray-300"
                     >
                       No active records in the pipeline.

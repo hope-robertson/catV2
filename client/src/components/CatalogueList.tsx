@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import SearchBar from './SearchBar.js'
 import { useCatalogue } from '../hooks/useCatalogue.js'
 import { useStaff } from '../hooks/useStaff.js'
-import { formatCurrency } from '../utils/pricing.js'
 import { useAuth0 } from '@auth0/auth0-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import request from 'superagent'
@@ -223,7 +222,8 @@ export default function CatalogueList() {
 
   return (
     <div
-      className={`relative space-y-6 pb-20 ${id ? 'pr-[340px]' : 'max-w-6xl mx-auto'}`}
+      /* 🎯 FIX: Changed padding strategy so it adjusts safely on smaller screens before hitting the sidebar breakpoint */
+      className={`relative space-y-6 pb-20 ${id ? 'lg:pr-[340px]' : 'max-w-6xl mx-auto'}`}
     >
       <header>
         <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight italic">
@@ -248,166 +248,165 @@ export default function CatalogueList() {
         />
       )}
 
-      {/* 🎯 COMMAND BAR - REBUILT TO PREVENT SQUISHING & OVERFLOW */}
-      <div className="bg-white p-4 rounded-3xl shadow-lg border border-gray-100 flex flex-col xl:flex-row gap-4 items-center">
-        {/* Search gets priority full-width on smaller screens */}
-        <div className="w-full xl:flex-1">
+      {/* 🎯 COMMAND BAR WITH FLEX WRAP TO PREVENT SQUISHING */}
+      <div className="bg-white p-4 rounded-3xl shadow-lg border border-gray-100 flex flex-wrap lg:flex-nowrap gap-4 items-center">
+        <div className="flex-1 min-w-[200px]">
           <SearchBar onSearch={(q) => setSearchTerm(q)} />
         </div>
+        <button
+          onClick={handleReset}
+          className="bg-gray-100 hover:bg-gray-200 text-gray-500 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors"
+        >
+          Reset
+        </button>
 
-        {/* Dropdowns wrap naturally without crushing the search box */}
-        <div className="flex flex-wrap gap-3 w-full xl:w-auto justify-start xl:justify-end items-center">
-          <button
-            onClick={handleReset}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-500 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-widest transition-colors"
-          >
-            Reset
-          </button>
+        <select
+          value={distFilter}
+          onChange={(e) => setDistFilter(e.target.value)}
+          className="bg-gray-50 border-none text-gray-700 py-2 px-3 rounded-xl font-bold text-[10px] uppercase tracking-widest outline-none"
+        >
+          {distributors.map((d) => (
+            <option key={d} value={d}>
+              {d === 'All' ? 'All Distributors' : d}
+            </option>
+          ))}
+        </select>
 
-          <select
-            value={distFilter}
-            onChange={(e) => setDistFilter(e.target.value)}
-            className="bg-gray-50 border-none text-gray-700 py-2 px-3 rounded-xl font-bold text-[10px] uppercase tracking-widest outline-none"
-          >
-            {distributors.map((d) => (
-              <option key={d} value={d}>
-                {d === 'All' ? 'All Distributors' : d}
-              </option>
-            ))}
-          </select>
+        <select
+          value={formatFilter}
+          onChange={(e) => setFormatFilter(e.target.value)}
+          className="bg-gray-50 border-none text-gray-700 py-2 px-3 rounded-xl font-bold text-[10px] uppercase tracking-widest outline-none"
+        >
+          <option value="All Vinyl">All Vinyl</option>
+          <option value="LP">LP</option>
+          <option value='7"'>7"</option>
+          <option value='12"'>12"</option>
+          <option value="CD">CD</option>
+          <option value="Cassette">Cassette</option>
+          <option value="All">Everything</option>
+        </select>
 
-          <select
-            value={formatFilter}
-            onChange={(e) => setFormatFilter(e.target.value)}
-            className="bg-gray-50 border-none text-gray-700 py-2 px-3 rounded-xl font-bold text-[10px] uppercase tracking-widest outline-none"
-          >
-            <option value="All Vinyl">All Vinyl</option>
-            <option value="LP">LP</option>
-            <option value='7"'>7"</option>
-            <option value='12"'>12"</option>
-            <option value="CD">CD</option>
-            <option value="Cassette">Cassette</option>
-            <option value="All">Everything</option>
-          </select>
-
-          <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            className="bg-gray-50 border-none text-blue-600 py-2 px-3 rounded-xl font-bold text-[10px] uppercase tracking-widest outline-none"
-          >
-            <option value="a-z">A-Z</option>
-            <option value="price-low">Price Low-High</option>
-            <option value="price-high">Price High-Low</option>
-          </select>
-        </div>
+        <select
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value)}
+          className="bg-gray-50 border-none text-blue-600 py-2 px-3 rounded-xl font-bold text-[10px] uppercase tracking-widest outline-none"
+        >
+          <option value="a-z">A-Z</option>
+          <option value="price-low">Price Low-High</option>
+          <option value="price-high">Price High-Low</option>
+        </select>
       </div>
 
-      <div className="bg-white shadow-xl rounded-[40px] overflow-hidden border border-gray-100">
-        <table className="min-w-full divide-y divide-gray-100">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-left tracking-widest">
-                Artist
-              </th>
-              <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-left tracking-widest">
-                Title
-              </th>
-              <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-left tracking-widest">
-                Format
-              </th>
-              <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-right tracking-widest">
-                Wholesale
-              </th>
-              <th className="px-6 py-4 text-[9px] font-black text-gray-400 uppercase text-center tracking-widest">
-                Action
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {processedResults.map((item) => {
-              const qtyInOrder = getItemQuantityInOrder(item.id)
-              return (
-                <tr
-                  key={item.id}
-                  className="hover:bg-blue-50/20 transition-colors group"
-                >
-                  <td className="px-6 py-4">
-                    <p className="text-sm font-bold text-gray-900">
-                      {item.artist || 'Various'}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-sm text-gray-500 font-medium">
-                      {item.title}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${item.format?.includes('LP') ? 'bg-purple-50 text-purple-600' : 'bg-amber-50 text-amber-600'}`}
-                    >
-                      {item.format || 'N/A'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right text-xs font-mono font-bold text-gray-400">
-                    ${(item.price ?? 0).toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      {qtyInOrder > 0 && (
-                        <div className="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-1 rounded-lg animate-in fade-in zoom-in duration-300 whitespace-nowrap">
-                          <span className="text-[9px] font-black">
-                            ({qtyInOrder})
-                          </span>
-                        </div>
-                      )}
+      {/* 🎯 FIX: Wrapped the table in an explicit overflow-x-auto container to prevent column crushing */}
+      <div className="bg-white shadow-xl rounded-[40px] border border-gray-100 w-full overflow-hidden">
+        <div className="overflow-x-auto w-full">
+          <table className="min-w-full divide-y divide-gray-100">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-left tracking-widest whitespace-nowrap">
+                  Artist
+                </th>
+                <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-left tracking-widest whitespace-nowrap">
+                  Title
+                </th>
+                <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-left tracking-widest whitespace-nowrap">
+                  Format
+                </th>
+                <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-right tracking-widest whitespace-nowrap">
+                  Wholesale
+                </th>
+                {/* 🎯 FIX: Added min-w-[150px] to ensure the action buttons always have breathing room */}
+                <th className="px-6 py-4 text-[9px] font-black text-gray-400 uppercase text-center tracking-widest min-w-[150px]">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {processedResults.map((item) => {
+                const qtyInOrder = getItemQuantityInOrder(item.id)
+                return (
+                  <tr
+                    key={item.id}
+                    className="hover:bg-blue-50/20 transition-colors group"
+                  >
+                    <td className="px-6 py-4">
+                      <p className="text-sm font-bold text-gray-900">
+                        {item.artist || 'Various'}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-sm text-gray-500 font-medium">
+                        {item.title}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter whitespace-nowrap ${item.format?.includes('LP') ? 'bg-purple-50 text-purple-600' : 'bg-amber-50 text-amber-600'}`}
+                      >
+                        {item.format || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right text-xs font-mono font-bold text-gray-400">
+                      ${(item.price ?? 0).toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        {qtyInOrder > 0 && (
+                          <div className="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-1 rounded-lg animate-in fade-in zoom-in duration-300 whitespace-nowrap">
+                            <span className="text-[9px] font-black">
+                              ({qtyInOrder})
+                            </span>
+                          </div>
+                        )}
 
-                      {/* ACTION BUTTONS */}
-                      {id ? (
-                        isTrusted ? (
-                          <>
-                            <input
-                              type="number"
-                              min="1"
-                              value={quantities[item.id] ?? '1'}
-                              onChange={(e) =>
-                                setQuantities({
-                                  ...quantities,
-                                  [item.id]: e.target.value,
-                                })
-                              }
-                              className="w-10 p-2 bg-gray-50 border-none rounded-xl text-xs font-black text-center outline-none focus:ring-2 focus:ring-blue-100"
-                            />
-                            <button
-                              onClick={() => handleAddToOrder(item)}
-                              className="bg-gray-900 hover:bg-blue-600 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase shadow-lg active:scale-95 transition-all"
-                            >
-                              Add
-                            </button>
-                          </>
+                        {/* ACTION BUTTONS */}
+                        {id ? (
+                          isTrusted ? (
+                            <>
+                              <input
+                                type="number"
+                                min="1"
+                                value={quantities[item.id] ?? '1'}
+                                onChange={(e) =>
+                                  setQuantities({
+                                    ...quantities,
+                                    [item.id]: e.target.value,
+                                  })
+                                }
+                                className="w-10 p-2 bg-gray-50 border-none rounded-xl text-xs font-black text-center outline-none focus:ring-2 focus:ring-blue-100"
+                              />
+                              <button
+                                onClick={() => handleAddToOrder(item)}
+                                className="bg-gray-900 hover:bg-blue-600 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase shadow-lg active:scale-95 transition-all whitespace-nowrap"
+                              >
+                                Add
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">
+                              View Only
+                            </span>
+                          )
                         ) : (
-                          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                            View Only
-                          </span>
-                        )
-                      ) : (
-                        <div className="flex flex-col items-center gap-1.5 w-full max-w-[90px]">
-                          <button
-                            onClick={() =>
-                              addToWishlistMutation.mutate(item.id)
-                            }
-                            className="text-[9px] w-full font-black uppercase text-pink-600 hover:text-white border border-pink-200 hover:border-pink-500 bg-pink-50 hover:bg-pink-500 px-3 py-1.5 rounded-xl transition-all shadow-sm active:scale-95"
-                          >
-                            + Wishlist
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                          <div className="flex flex-col items-center gap-1.5 w-full max-w-[90px]">
+                            <button
+                              onClick={() =>
+                                addToWishlistMutation.mutate(item.id)
+                              }
+                              className="text-[9px] w-full font-black uppercase text-pink-600 hover:text-white border border-pink-200 hover:border-pink-500 bg-pink-50 hover:bg-pink-500 px-3 py-1.5 rounded-xl transition-all shadow-sm active:scale-95 whitespace-nowrap"
+                            >
+                              + Wishlist
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
 
         {/* Lazy Load trigger element */}
         <div

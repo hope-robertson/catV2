@@ -22,12 +22,13 @@ router.get(
 
       res.json(customers)
     } catch (error) {
+      console.error('🔥 [API] Failed to search customers:', error)
       res.status(500).json({ message: 'Failed to search customers' })
     }
   },
 )
 
-// 👤 POST /api/v1/customers (Create a new customer)
+// 👤 POST /api/v1/customers (Create a new customer OR return existing)
 router.post(
   '/',
   checkJwt,
@@ -35,22 +36,44 @@ router.post(
   async (req: AuthRequest, res: Response) => {
     try {
       const { name, phone, email } = req.body
+      console.log(
+        `👤 [API] Incoming customer request - Name: ${name}, Phone: ${phone}`,
+      )
 
       // Non-negotiable check
       if (!name || !phone) {
+        console.warn('⚠️ [API] Validation failed: Missing name or phone.')
         return res
           .status(400)
           .json({ message: 'Name and Phone are strictly required.' })
       }
 
+      // 🎯 SMART FIX: Check if customer already exists by phone number
+      const existingCustomer = await knex('customers').where({ phone }).first()
+
+      if (existingCustomer) {
+        console.log(
+          `✅ [API] Found existing customer ID: ${existingCustomer.id}`,
+        )
+        return res.status(200).json({
+          id: existingCustomer.id,
+          name: existingCustomer.name,
+          phone: existingCustomer.phone,
+          email: existingCustomer.email,
+        })
+      }
+
+      console.log('➕ [API] Customer does not exist. Creating new record...')
       const [newIds] = await knex('customers')
         .insert({ name, phone, email })
         .returning('id')
-      // Handle both array returns (Postgres) and single id returns (SQLite/MySQL)
+
       const newId = typeof newIds === 'object' ? newIds.id : newIds
+      console.log(`✅ [API] New customer created with ID: ${newId}`)
 
       res.status(201).json({ id: newId, name, phone, email })
     } catch (error) {
+      console.error('🔥 [API] Failed to create/find customer:', error)
       res.status(500).json({ message: 'Failed to create customer' })
     }
   },
@@ -66,25 +89,32 @@ router.post(
     const { items, notes } = req.body
     const staffId = req.dbUser?.id
 
+    console.log(
+      `📦 [API] Incoming order for Customer ID: ${customerId}, Staff ID: ${staffId}`,
+    )
+    console.log(`📦 [API] Item count: ${items?.length}, Notes: ${notes}`)
+
     if (!staffId) return res.status(403).json({ message: 'Staff ID missing' })
     if (!items || items.length === 0)
       return res.status(400).json({ message: 'No items in order' })
 
-    // 🔒 Transaction: If the items fail, the docket rolls back so you don't get empty ghosts
     const trx = await knex.transaction()
 
     try {
+      console.log('🔄 [API] Starting database transaction...')
+
       // 1. Create the Docket
       const [orderIds] = await trx('customer_orders')
         .insert({
           customer_id: customerId,
-          staff_id: staffId, // Locks in who processed it
+          staff_id: staffId,
           notes,
           status: 'pending',
         })
         .returning('id')
 
       const docketId = typeof orderIds === 'object' ? orderIds.id : orderIds
+      console.log(`✅ [API] Docket created with ID: ${docketId}`)
 
       // 2. Prep the Items
       const itemsToInsert = items.map((item: any) => ({
@@ -97,13 +127,18 @@ router.post(
       }))
 
       // 3. Insert the Items
+      console.log('🔄 [API] Inserting items into docket...')
       await trx('customer_order_items').insert(itemsToInsert)
 
       await trx.commit()
+      console.log('🎉 [API] Transaction committed successfully!')
       res.status(201).json({ message: 'Customer order locked in', docketId })
     } catch (error) {
       await trx.rollback()
-      console.error('Failed to save customer docket:', error)
+      console.error(
+        '🔥 [API] Transaction failed. Rolled back. Error details:',
+        error,
+      )
       res.status(500).json({ message: 'Failed to save customer order' })
     }
   },
@@ -153,10 +188,12 @@ router.get(
         .whereIn('customer_order_items.customer_order_id', docketIds)
         .select(
           'customer_order_items.customer_order_id',
+          'customer_order_items.master_catalogue_id',
           'customer_order_items.quantity',
           'customer_order_items.quoted_price',
           'master_catalogue.artist',
           'master_catalogue.title',
+          'master_catalogue.price', // 🎯 ADDED: Wholesale price for shop mission logic
           'master_catalogue.source_distributor',
         )
 
@@ -166,7 +203,7 @@ router.get(
           (i) => i.customer_order_id === order.docket_id,
         )
 
-        // Calculate sum of (price * quantity)
+        // Customer dashboard total remains the Retail Quoted Price
         const total_value = orderItems.reduce(
           (sum, item) => sum + Number(item.quoted_price) * item.quantity,
           0,
@@ -232,6 +269,34 @@ router.patch(
     } catch (error) {
       console.error('Failed to update order flags:', error)
       res.status(500).json({ message: 'Failed to update order status' })
+    }
+  },
+)
+
+// 🗑️ DELETE /api/v1/customers/orders/:docketId (Delete a customer order)
+router.delete(
+  '/orders/:docketId',
+  checkJwt,
+  checkPermissions,
+  async (req: AuthRequest, res: Response) => {
+    const { docketId } = req.params
+    const trx = await knex.transaction()
+
+    try {
+      // Delete the items first to prevent SQLite foreign key constraint errors
+      await trx('customer_order_items')
+        .where('customer_order_id', docketId)
+        .delete()
+
+      // Then delete the master docket
+      await trx('customer_orders').where('id', docketId).delete()
+
+      await trx.commit()
+      res.json({ message: 'Customer order deleted successfully' })
+    } catch (error) {
+      await trx.rollback()
+      console.error('🔥 Failed to delete customer order:', error)
+      res.status(500).json({ message: 'Failed to delete customer order' })
     }
   },
 )

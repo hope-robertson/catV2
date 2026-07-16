@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 
 interface Props {
   onSearch: (query: string) => void
@@ -7,46 +7,65 @@ interface Props {
 export default function SearchBar({ onSearch }: Props) {
   const [query, setQuery] = useState('')
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    onSearch(query)
-  }
+  // Debounce the search to automatically search as you type
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      onSearch(query)
+    }, 300)
+    return () => clearTimeout(delayDebounceFn)
+  }, [query])
 
-  const handleReset = () => {
+  const handleClear = () => {
     setQuery('')
-    onSearch('') // Restores the full list
+    onSearch('')
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="flex flex-col md:flex-row gap-3 bg-white p-4 rounded-xl shadow-sm border border-gray-100"
-    >
-      <div className="flex-grow relative">
-        <input
-          type="text"
-          placeholder="Search Catalogue..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={handleReset}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 font-bold bg-gray-100 rounded-full w-6 h-6 flex items-center justify-center text-xs"
-          >
-            ✕
-          </button>
-        )}
+    <div className="relative w-full min-w-[200px]">
+      {/* Search Icon */}
+      <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+        <svg
+          className="h-5 w-5 text-gray-400"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z"
+            clipRule="evenodd"
+          />
+        </svg>
       </div>
 
-      <button
-        type="submit"
-        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg transition-colors shadow-lg shadow-blue-200 active:transform active:scale-95"
-      >
-        Search
-      </button>
-    </form>
+      {/* Search Input */}
+      <input
+        type="text"
+        placeholder="Search Catalogue..."
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        className="w-full h-12 pl-11 pr-10 border-2 border-gray-100 bg-gray-50 rounded-2xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all font-bold text-gray-900 placeholder-gray-400"
+      />
+
+      {/* Clear Button (only shows when there is text) */}
+      {query && (
+        <button
+          type="button"
+          onClick={handleClear}
+          className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+        >
+          <svg
+            className="h-5 w-5 bg-gray-200 rounded-full p-1"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
+      )}
+    </div>
   )
 }

@@ -1,17 +1,42 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect, useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
+import { useQueryClient } from '@tanstack/react-query'
+import { formatCurrency } from '../utils/pricing.js'
 
 export default function CreateOrder() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { getAccessTokenSilently } = useAuth0()
+  const queryClient = useQueryClient()
+
+  const preselectedDist = searchParams.get('dist') || 'Southbound'
 
   const [form, setForm] = useState({
     name: '',
     budget_limit: 1000,
-    distributor: 'Southbound',
+    distributor: preselectedDist,
   })
+
+  // --- AUTO-LINK STATE ---
+  const [customerOrders, setCustomerOrders] = useState<any[]>([])
+  const [isInitializing, setIsInitializing] = useState(false)
+
+  useEffect(() => {
+    const fetchCustomerOrders = async () => {
+      try {
+        const token = await getAccessTokenSilently()
+        const res = await request
+          .get('/api/v1/customers/orders/active')
+          .set('Authorization', `Bearer ${token}`)
+        setCustomerOrders(res.body || [])
+      } catch (err) {
+        console.error('Failed to fetch customer orders:', err)
+      }
+    }
+    fetchCustomerOrders()
+  }, [getAccessTokenSilently])
 
   const distributors = [
     'Southbound',
@@ -24,19 +49,79 @@ export default function CreateOrder() {
     'Warner Music',
   ]
 
+  // --- CALCULATE MATCHING CUSTOMER DEMAND (WHOLESALE COST) ---
+  const { matchedDockets, matchedItems, matchedTotal } = useMemo(() => {
+    const dockets = customerOrders.filter(
+      (o) =>
+        o.distributor === form.distributor && !o.is_ordered && !o.is_backburner,
+    )
+    const items = dockets.flatMap((d) => d.items || [])
+    const total = items.reduce(
+      (sum, item) => sum + Number(item.price || 0) * item.quantity, // 🎯 Fix: use wholesale price
+      0,
+    )
+    return { matchedDockets: dockets, matchedItems: items, matchedTotal: total }
+  }, [customerOrders, form.distributor])
+
+  // Auto-bump the budget if customer demand exceeds the default
+  useEffect(() => {
+    if (matchedTotal > form.budget_limit) {
+      setForm((prev) => ({
+        ...prev,
+        budget_limit: Math.ceil(matchedTotal / 100) * 100 + 200,
+      }))
+    }
+  }, [matchedTotal])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setIsInitializing(true)
     try {
       const token = await getAccessTokenSilently()
-      const res = await request
+
+      // 1. Create the main shop order
+      const orderRes = await request
         .post('/api/v1/orders')
         .set('Authorization', `Bearer ${token}`)
         .send(form)
 
-      navigate(`/orders/${res.body.id}/catalogue`)
+      const newOrderId = orderRes.body.id
+
+      // 2. Automatically inject customer items into the new shop order
+      if (matchedItems.length > 0) {
+        for (const item of matchedItems) {
+          const catalogueId = item.master_catalogue_id || item.id
+          if (catalogueId) {
+            await request
+              .post(`/api/v1/orders/${newOrderId}/items`)
+              .set('Authorization', `Bearer ${token}`)
+              .send({
+                master_catalogue_id: catalogueId,
+                quantity: item.quantity,
+                ams_price: item.price || 0, // 🎯 Fix: Inject Wholesale price to match manual items
+              })
+          }
+        }
+
+        // 3. Flag those customer dockets as 'Ordered' so they clear from the demand screen!
+        for (const docket of matchedDockets) {
+          await request
+            .patch(`/api/v1/customers/orders/${docket.docket_id}`)
+            .set('Authorization', `Bearer ${token}`)
+            .send({ is_ordered: true })
+        }
+
+        // 🎯 FIX: Force React Query to wipe its cache of customer orders
+        // so the demand screen accurately reflects the newly ordered items when we navigate back
+        queryClient.invalidateQueries({ queryKey: ['customerOrders'] })
+      }
+
+      // Navigate to the catalogue to finish manually picking
+      navigate(`/orders/${newOrderId}/catalogue`)
     } catch (err) {
       console.error('Order creation failed:', err)
       alert('Failed to initialize mission.')
+      setIsInitializing(false)
     }
   }
 
@@ -101,11 +186,39 @@ export default function CreateOrder() {
           </div>
         </div>
 
+        {/* 🎯 UI: AUTO-LINK NOTIFICATION */}
+        {matchedDockets.length > 0 && (
+          <div className="bg-blue-50 border border-blue-100 p-5 rounded-2xl flex justify-between items-center animate-in fade-in zoom-in duration-300">
+            <div>
+              <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                Customer Demand Detected
+              </p>
+              <p className="text-sm font-bold text-gray-800 mt-1 leading-snug">
+                {matchedItems.length} records across {matchedDockets.length}{' '}
+                dockets
+                <br />
+                will be auto-injected into this mission.
+              </p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                Wholesale Cost
+              </p>
+              <p className="text-2xl font-black text-blue-700">
+                ${matchedTotal.toFixed(2)}
+              </p>
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
-          className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl hover:bg-blue-600 transition-all active:scale-[0.98] mt-4"
+          disabled={isInitializing}
+          className="w-full bg-gray-900 text-white py-5 rounded-2xl font-black uppercase tracking-widest text-xs shadow-xl hover:bg-blue-600 transition-all active:scale-[0.98] mt-4 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Initialize Order →
+          {isInitializing
+            ? 'Injecting Customer Orders...'
+            : 'Initialize Mission →'}
         </button>
       </form>
     </div>
