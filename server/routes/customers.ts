@@ -65,7 +65,7 @@ router.post(
 
       console.log('➕ [API] Customer does not exist. Creating new record...')
       const [newIds] = await knex('customers')
-        .insert({ name, phone, email })
+        .insert({ name, phone, email: email || null })
         .returning('id')
 
       const newId = typeof newIds === 'object' ? newIds.id : newIds

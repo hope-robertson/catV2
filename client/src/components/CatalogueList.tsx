@@ -222,7 +222,6 @@ export default function CatalogueList() {
 
   return (
     <div
-      /* 🎯 FIX: Changed padding strategy so it adjusts safely on smaller screens before hitting the sidebar breakpoint */
       className={`relative space-y-6 pb-20 ${id ? 'lg:pr-[340px]' : 'max-w-6xl mx-auto'}`}
     >
       <header>
@@ -248,7 +247,7 @@ export default function CatalogueList() {
         />
       )}
 
-      {/* 🎯 COMMAND BAR WITH FLEX WRAP TO PREVENT SQUISHING */}
+      {/* COMMAND BAR WITH FLEX WRAP */}
       <div className="bg-white p-4 rounded-3xl shadow-lg border border-gray-100 flex flex-wrap lg:flex-nowrap gap-4 items-center">
         <div className="flex-1 min-w-[200px]">
           <SearchBar onSearch={(q) => setSearchTerm(q)} />
@@ -297,7 +296,6 @@ export default function CatalogueList() {
         </select>
       </div>
 
-      {/* 🎯 FIX: Wrapped the table in an explicit overflow-x-auto container to prevent column crushing */}
       <div className="bg-white shadow-xl rounded-[40px] border border-gray-100 w-full overflow-hidden">
         <div className="overflow-x-auto w-full">
           <table className="min-w-full divide-y divide-gray-100">
@@ -313,10 +311,9 @@ export default function CatalogueList() {
                   Format
                 </th>
                 <th className="px-6 py-5 text-[9px] font-black text-gray-400 uppercase text-right tracking-widest whitespace-nowrap">
-                  Wholesale
+                  Pricing
                 </th>
-                {/* 🎯 FIX: Added min-w-[150px] to ensure the action buttons always have breathing room */}
-                <th className="px-6 py-4 text-[9px] font-black text-gray-400 uppercase text-center tracking-widest min-w-[150px]">
+                <th className="sticky right-0 bg-gray-50 px-6 py-4 text-[9px] font-black text-gray-400 uppercase text-center tracking-widest shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.05)]">
                   Action
                 </th>
               </tr>
@@ -324,10 +321,17 @@ export default function CatalogueList() {
             <tbody className="divide-y divide-gray-50">
               {processedResults.map((item) => {
                 const qtyInOrder = getItemQuantityInOrder(item.id)
+                // 🎯 NEW: Determine if the row should be highlighted
+                const isSelected = qtyInOrder > 0
+
                 return (
                   <tr
                     key={item.id}
-                    className="hover:bg-blue-50/20 transition-colors group"
+                    className={`transition-colors group ${
+                      isSelected
+                        ? 'bg-blue-50/50 hover:bg-blue-100/50'
+                        : 'hover:bg-gray-50/80'
+                    }`}
                   >
                     <td className="px-6 py-4">
                       <p className="text-sm font-bold text-gray-900">
@@ -346,42 +350,33 @@ export default function CatalogueList() {
                         {item.format || 'N/A'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right text-xs font-mono font-bold text-gray-400">
-                      ${(item.price ?? 0).toFixed(2)}
+                    <td className="px-6 py-4 text-right whitespace-nowrap pr-8">
+                      <div className="flex flex-col items-end justify-center">
+                        <span className="text-sm font-mono font-black text-gray-900">
+                          ${(item.price ?? 0).toFixed(2)}
+                        </span>
+                        <span className="text-[9px] font-mono font-bold text-blue-500 mt-0.5">
+                          RRP ${Math.ceil((item.price ?? 0) * 1.5).toFixed(2)}
+                        </span>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-center">
+                    <td
+                      className={`sticky right-0 px-6 py-4 text-center shadow-[-10px_0_15px_-3px_rgba(0,0,0,0.02)] transition-colors ${
+                        isSelected
+                          ? 'bg-blue-50/50 group-hover:bg-blue-100/50'
+                          : 'bg-white group-hover:bg-gray-50/80'
+                      }`}
+                    >
                       <div className="flex items-center justify-center gap-2">
-                        {qtyInOrder > 0 && (
-                          <div className="flex items-center gap-1 bg-green-50 text-green-600 px-2 py-1 rounded-lg animate-in fade-in zoom-in duration-300 whitespace-nowrap">
-                            <span className="text-[9px] font-black">
-                              ({qtyInOrder})
-                            </span>
-                          </div>
-                        )}
-
                         {/* ACTION BUTTONS */}
                         {id ? (
                           isTrusted ? (
-                            <>
-                              <input
-                                type="number"
-                                min="1"
-                                value={quantities[item.id] ?? '1'}
-                                onChange={(e) =>
-                                  setQuantities({
-                                    ...quantities,
-                                    [item.id]: e.target.value,
-                                  })
-                                }
-                                className="w-10 p-2 bg-gray-50 border-none rounded-xl text-xs font-black text-center outline-none focus:ring-2 focus:ring-blue-100"
-                              />
-                              <button
-                                onClick={() => handleAddToOrder(item)}
-                                className="bg-gray-900 hover:bg-blue-600 text-white text-[9px] font-black px-4 py-2 rounded-xl uppercase shadow-lg active:scale-95 transition-all whitespace-nowrap"
-                              >
-                                Add
-                              </button>
-                            </>
+                            <button
+                              onClick={() => handleAddToOrder(item)}
+                              className="bg-gray-900 hover:bg-blue-600 text-white text-[9px] font-black px-5 py-2.5 rounded-xl uppercase shadow-lg active:scale-95 transition-all whitespace-nowrap"
+                            >
+                              Add {isSelected && `(${qtyInOrder})`}
+                            </button>
                           ) : (
                             <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">
                               View Only
