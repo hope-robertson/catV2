@@ -64,7 +64,7 @@ router.patch(
   },
 )
 
-// 🎯 NEW: Finalize Route (Locks the mission)
+// Finalize Route
 router.patch(
   '/:id/finalize',
   checkJwt,
@@ -148,7 +148,7 @@ router.delete(
   },
 )
 
-// 🎯 NEW: DELETE entire order (Abort Mission)
+// DELETE entire order
 router.delete(
   '/:id',
   checkJwt,
@@ -157,7 +157,6 @@ router.delete(
   async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params
-      // onDelete('CASCADE') in DB handles the attached order_items automatically
       await knex('orders').where('id', id).del()
       res.json({ message: 'Order deleted' })
     } catch (error) {
@@ -166,30 +165,7 @@ router.delete(
   },
 )
 
-// GET Stats for the HUD
-router.get(
-  '/:id/stats',
-  checkJwt,
-  checkPermissions,
-  async (req: AuthRequest, res: Response) => {
-    const { id } = req.params
-    try {
-      const items = await knex('order_items')
-        .where('order_id', id)
-        .select('ams_price', 'quantity')
-      const total = items.reduce(
-        (sum, item) => sum + item.ams_price * item.quantity,
-        0,
-      )
-      const count = items.reduce((sum, item) => sum + item.quantity, 0)
-      res.json({ total, count })
-    } catch (error) {
-      res.status(500).json({ message: 'Stats error' })
-    }
-  },
-)
-
-// GET Summary for Review
+// Summary for Review (Includes all fields for Excel Export)
 router.get(
   '/:id/summary',
   checkJwt,
@@ -207,12 +183,13 @@ router.get(
         .where('order_items.order_id', id)
         .select(
           'order_items.id as item_id',
-          'order_items.master_catalogue_id', // Needed for the frontend "Tick" check
           'master_catalogue.artist',
           'master_catalogue.title',
+          'master_catalogue.format',
+          'master_catalogue.catalogue_number',
+          'master_catalogue.source_distributor',
           'order_items.ams_price',
           'order_items.quantity',
-          'staff.name as staff_member',
         )
       const totalCost = summary.reduce(
         (acc, item) => acc + item.ams_price * item.quantity,
