@@ -17,7 +17,6 @@ export default function CatalogueList() {
   const { results, loading, hasMore, performSearch } = useCatalogue()
   const { isTrusted } = useStaff()
 
-  // -- MAIN CATALOGUE STATE --
   const [distFilter, setDistFilter] = useState('All')
   const [formatFilter, setFormatFilter] = useState('All Vinyl')
   const [sortOrder, setSortOrder] = useState('a-z')
@@ -25,7 +24,9 @@ export default function CatalogueList() {
   const [offset, setOffset] = useState(0)
   const observerTarget = useRef<HTMLDivElement | null>(null)
 
-  // -- SHOP ORDER STATE --
+  // 🎯 NEW: Dedicated error state to catch silent failures
+  const [actionError, setActionError] = useState<string | null>(null)
+
   const [orderItems, setOrderItems] = useState<any[]>([])
   const [dbTotal, setDbTotal] = useState(0)
   const [dbCount, setDbCount] = useState(0)
@@ -58,7 +59,6 @@ export default function CatalogueList() {
     },
   })
 
-  // Sync Logic...
   const syncOrderContext = async () => {
     if (!id) return
     try {
@@ -125,7 +125,6 @@ export default function CatalogueList() {
     return () => observer.disconnect()
   }, [hasMore, loading])
 
-  // Frontend Filtering & Sorting Logic
   const processedResults = useMemo(() => {
     let filtered = [...results]
 
@@ -152,7 +151,6 @@ export default function CatalogueList() {
     return filtered
   }, [results, formatFilter, sortOrder])
 
-  // --- ACTIONS ---
   const handleAddToOrder = async (item: any) => {
     const qty = parseInt(quantities[item.id] || '1', 10)
     try {
@@ -185,26 +183,38 @@ export default function CatalogueList() {
   }
 
   const handleFinalize = async () => {
+    setActionError(null)
     try {
       const token = await getAccessTokenSilently()
       await request
         .patch(`/api/v1/orders/${id}/finalize`)
         .set('Authorization', `Bearer ${token}`)
-      navigate('/')
-    } catch (err) {
-      console.error('Finalize failed')
+
+      // Successfully locked! Go directly to the review page.
+      navigate(`/orders/${id}/review`)
+    } catch (err: any) {
+      console.error('Finalize failed:', err)
+      // Display the error on screen instead of failing silently
+      setActionError(
+        `Database error: ${err.response?.text || err.message}. Route fallback initiated.`,
+      )
+      // Force navigation anyway to verify the route exists!
+      setTimeout(() => navigate(`/orders/${id}/review`), 2000)
     }
   }
 
   const handleDeleteOrder = async () => {
+    setActionError(null)
     try {
       const token = await getAccessTokenSilently()
       await request
         .delete(`/api/v1/orders/${id}`)
         .set('Authorization', `Bearer ${token}`)
-      navigate('/')
-    } catch (err) {
-      console.error('Delete order failed')
+
+      navigate('/orders')
+    } catch (err: any) {
+      console.error('Delete failed:', err)
+      setActionError(`Delete error: ${err.response?.text || err.message}`)
     }
   }
 
@@ -233,6 +243,16 @@ export default function CatalogueList() {
         </p>
       </header>
 
+      {/* 🎯 Visible Error Banner */}
+      {actionError && (
+        <div className="bg-red-50 border-2 border-red-200 text-red-700 p-4 rounded-2xl shadow-sm">
+          <p className="font-black uppercase text-[10px] tracking-widest mb-1">
+            Action Failed
+          </p>
+          <p className="font-bold text-sm">{actionError}</p>
+        </div>
+      )}
+
       {/* RENDER THE EXTRACTED SIDEBAR */}
       {id && (
         <ActiveOrderSidebar
@@ -247,7 +267,6 @@ export default function CatalogueList() {
         />
       )}
 
-      {/* COMMAND BAR WITH FLEX WRAP */}
       <div className="bg-white p-4 rounded-3xl shadow-lg border border-gray-100 flex flex-wrap lg:flex-nowrap gap-4 items-center">
         <div className="flex-1 min-w-[200px]">
           <SearchBar onSearch={(q) => setSearchTerm(q)} />
@@ -321,7 +340,6 @@ export default function CatalogueList() {
             <tbody className="divide-y divide-gray-50">
               {processedResults.map((item) => {
                 const qtyInOrder = getItemQuantityInOrder(item.id)
-                // 🎯 NEW: Determine if the row should be highlighted
                 const isSelected = qtyInOrder > 0
 
                 return (
@@ -368,7 +386,6 @@ export default function CatalogueList() {
                       }`}
                     >
                       <div className="flex items-center justify-center gap-2">
-                        {/* ACTION BUTTONS */}
                         {id ? (
                           isTrusted ? (
                             <button
@@ -403,7 +420,6 @@ export default function CatalogueList() {
           </table>
         </div>
 
-        {/* Lazy Load trigger element */}
         <div
           ref={observerTarget}
           className="h-24 flex items-center justify-center"
