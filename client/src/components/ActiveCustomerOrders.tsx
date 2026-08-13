@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
@@ -10,6 +10,9 @@ export default function ActiveCustomerOrders() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const THRESHOLD = 500
+
+  // State for our custom delete confirmation (replacing window.confirm)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
 
   const { data: orders = [], isLoading } = useQuery({
     queryKey: ['customerOrders'],
@@ -43,7 +46,6 @@ export default function ActiveCustomerOrders() {
     },
   })
 
-  // 🎯 New Delete Mutation
   const deleteOrderMutation = useMutation({
     mutationFn: async (id: number) => {
       const token = await getAccessTokenSilently()
@@ -53,6 +55,7 @@ export default function ActiveCustomerOrders() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['customerOrders'] })
+      setConfirmDeleteId(null) // Reset confirmation state on success
     },
   })
 
@@ -61,13 +64,7 @@ export default function ActiveCustomerOrders() {
   }
 
   const handleDelete = (id: number) => {
-    if (
-      window.confirm(
-        'Are you sure you want to permanently delete this customer order? This cannot be undone.',
-      )
-    ) {
-      deleteOrderMutation.mutate(id)
-    }
+    deleteOrderMutation.mutate(id)
   }
 
   const distributorGroups = useMemo(() => {
@@ -76,7 +73,13 @@ export default function ActiveCustomerOrders() {
     orders.forEach((order: any) => {
       if (order.is_backburner || order.is_ordered) return
 
-      const dist = order.distributor || 'Unknown'
+      let dist = order.distributor || 'Unknown'
+
+      // 🎯 MERGE SONY & WARNER INTO RHYTHMETHOD
+      if (dist === 'Sony Music' || dist === 'Warner Music') {
+        dist = 'Rhythmethod'
+      }
+
       if (!groups[dist]) {
         groups[dist] = { total: 0, count: 0, orders: [] }
       }
@@ -109,6 +112,7 @@ export default function ActiveCustomerOrders() {
           </p>
         </header>
 
+        {}
         {Object.keys(distributorGroups).length === 0 ? (
           <div className="bg-white p-10 rounded-3xl border-2 border-dashed border-gray-200 text-center shadow-sm">
             <p className="text-xs font-black uppercase text-gray-400 tracking-widest">
@@ -147,7 +151,6 @@ export default function ActiveCustomerOrders() {
                       </p>
                     </div>
 
-                    {/* 🎯 Always allows initialization with dynamic styling */}
                     <div className="mt-auto space-y-3">
                       {!isReady && (
                         <div className="text-[10px] font-bold text-amber-600 uppercase bg-amber-50 py-2.5 rounded-xl text-center border border-amber-100">
@@ -177,6 +180,7 @@ export default function ActiveCustomerOrders() {
         )}
       </section>
 
+      {}
       <section>
         <div className="flex justify-between items-end mb-6">
           <h3 className="text-xl font-black uppercase tracking-widest text-gray-900">
@@ -290,6 +294,7 @@ export default function ActiveCustomerOrders() {
                       {order.clerk_name}
                     </td>
 
+                    {}
                     <td className="px-4 py-4 text-center border-l border-gray-50 align-top pt-5">
                       <input
                         type="checkbox"
@@ -375,28 +380,46 @@ export default function ActiveCustomerOrders() {
                       />
                     </td>
                     <td className="px-4 py-4 text-center border-l border-gray-50 align-top pt-5">
-                      <button
-                        onClick={() => handleDelete(order.docket_id)}
-                        disabled={deleteOrderMutation.isPending}
-                        className="text-gray-300 hover:text-red-500 transition-colors"
-                        title="Delete Order"
-                      >
-                        <svg
-                          style={{
-                            width: '18px',
-                            height: '18px',
-                            margin: '0 auto',
-                          }}
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
+                      {}
+                      {confirmDeleteId === order.docket_id ? (
+                        <div className="flex flex-col gap-1 items-center">
+                          <button
+                            onClick={() => handleDelete(order.docket_id)}
+                            disabled={deleteOrderMutation.isPending}
+                            className="bg-red-600 text-white text-[8px] font-black px-2 py-1 rounded uppercase tracking-widest w-full"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="bg-gray-200 text-gray-700 text-[8px] font-black px-2 py-1 rounded uppercase tracking-widest w-full"
+                          >
+                            No
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteId(order.docket_id)}
+                          className="text-gray-300 hover:text-red-500 transition-colors"
+                          title="Delete Order"
                         >
-                          <path
-                            fillRule="evenodd"
-                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      </button>
+                          <svg
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              margin: '0 auto',
+                            }}
+                            fill="currentColor"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

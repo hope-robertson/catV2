@@ -149,8 +149,17 @@ export async function searchMasterCatalogue(
     })
   }
 
+  // 🎯 THE FIX: Auto-Group Sony and Warner into Rhythmethod!
   if (distributor && distributor !== 'All') {
-    queryBuilder = queryBuilder.andWhere('source_distributor', distributor)
+    if (distributor === 'Rhythmethod') {
+      queryBuilder = queryBuilder.whereIn('source_distributor', [
+        'Rhythmethod',
+        'Sony Music',
+        'Warner Music',
+      ])
+    } else {
+      queryBuilder = queryBuilder.andWhere('source_distributor', distributor)
+    }
   }
 
   if (format && format !== 'All') {

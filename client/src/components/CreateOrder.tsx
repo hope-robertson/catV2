@@ -49,10 +49,19 @@ export default function CreateOrder() {
 
   // --- CALCULATE MATCHING CUSTOMER DEMAND (WHOLESALE COST) ---
   const { matchedDockets, matchedItems, matchedTotal } = useMemo(() => {
-    const dockets = customerOrders.filter(
-      (o) =>
-        o.distributor === form.distributor && !o.is_ordered && !o.is_backburner,
-    )
+    const dockets = customerOrders.filter((o) => {
+      if (o.is_ordered || o.is_backburner) return false
+
+      // 🎯 THE FIX: Group Rhythmethod, Sony, and Warner together!
+      if (form.distributor === 'Rhythmethod') {
+        return ['Rhythmethod', 'Sony Music', 'Warner Music'].includes(
+          o.distributor,
+        )
+      }
+
+      return o.distributor === form.distributor
+    })
+
     const items = dockets.flatMap((d) => d.items || [])
     const total = items.reduce(
       (sum, item) => sum + Number(item.price || 0) * item.quantity,
