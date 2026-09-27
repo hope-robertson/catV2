@@ -1,0 +1,144 @@
+CLAUDE.md
+client
+client/index.html
+client/src
+client/src/App.css
+client/src/App.tsx
+client/src/apis
+client/src/apis/catalogue.ts
+client/src/components
+client/src/components/AMSQuoteModal.tsx
+client/src/components/ActiveCustomerOrders.tsx
+client/src/components/ActiveOrderSidebar.tsx
+client/src/components/ActiveOrders.tsx
+client/src/components/AddPirateForm.tsx
+client/src/components/AdminPanel.tsx
+client/src/components/CatalogueList.tsx
+client/src/components/CollisionReviewModal.tsx
+client/src/components/CreateOrder.tsx
+client/src/components/CrewManifesto.tsx
+client/src/components/DataIntegrityDashboard.tsx
+client/src/components/FinancialSettingsModal.tsx
+client/src/components/FloatingCustomerDocket.tsx
+client/src/components/ImportData.tsx
+client/src/components/NavBar.tsx
+client/src/components/NewCustomerOrder.tsx
+client/src/components/OrderReview.tsx
+client/src/components/SearchBar.tsx
+client/src/components/WealthControl.tsx
+client/src/components/Wishlist.tsx
+client/src/hooks
+client/src/hooks/useCatalogue.ts
+client/src/hooks/useCustomers.ts
+client/src/hooks/useImportData.ts
+client/src/hooks/useStaff.ts
+client/src/hooks/useWishlist.ts
+client/src/index.css
+client/src/main.tsx
+client/src/models
+client/src/models/catalogue.ts
+client/src/models/orders.ts
+client/src/models/staff.ts
+client/src/utils
+client/src/utils/allowanceLogic.ts
+client/src/utils/pricing.ts
+client/src/utils/rotationLogic.ts
+client/src/utils/stringMatcher.ts
+client/src/vite-env.d.ts
+client/vite.config.ts
+knexfile.js
+make-map.js
+node_modules
+package-lock.json
+package.json
+server
+server/auth0
+server/auth0/auth.ts
+server/auth0/handshake.ts
+server/auth0/permissions.ts
+server/dataHandlers
+server/dataHandlers/distributorHandlers
+server/dataHandlers/getDistributorHandler.ts
+server/db
+server/db/catV2.sqlite3
+server/db/catalogue.ts
+server/db/connection.ts
+server/db/migrations
+server/db/migrations/20250729064702_create_master_catalogue_table.js
+server/db/migrations/20250801000000_create_base_orders.js
+server/db/migrations/20250901030222_create_staff_table.js
+server/db/migrations/20250901030544_create_customers_table.js
+server/db/migrations/20250901030839_create_books_table.js
+server/db/migrations/20250901031650_create_comics_table.js
+server/db/migrations/20250906083944_create_order_pick_items_table.js
+server/db/migrations/20250906084213_create_wishlist_items_table.js
+server/db/migrations/20251203014736_create_all_raw_tables_standardised.js
+server/db/migrations/20251203020202_add_stock_on_hand_to_master_catalogue.js
+server/db/migrations/20260124101227_add_rating_to_records.js
+server/db/migrations/20260313044507_sync_master_with_raw_fields.js
+server/db/migrations/20260315020056_master_collisions.js
+server/db/migrations/20260315051837_create_sections_table.js
+server/db/migrations/20260315052036_create_staff_sections_table.js
+server/db/migrations/20260315052930_create_store_settings_table.js
+server/db/migrations/20260321001743_upgrade_v2_logic.js
+server/db/migrations/20260321004844_create_procurement_batches.js
+server/db/migrations/20260330055319_create_comm_hub.js
+server/db/migrations/20260330055359_create_shifts.js
+server/db/migrations/20260330073658_create_duty_rotations.js
+server/db/migrations/20260615051537_create_customer_pipeline.js.js
+server/db/migrations/20260621222423_add_status_flags_to_customer_orders.js
+server/db/seeds
+server/db/seeds/00_crew.js
+server/db/seeds/duty_rotations.js
+server/db/seeds/ride_on_sections.js
+server/db/seeds/store_settings.js
+server/db/settings.ts
+server/index.ts
+server/middleware
+server/middleware/auth.ts
+server/routes
+server/routes/admin.ts
+server/routes/catalogue.ts
+server/routes/catalogueMapping.ts
+server/routes/customers.ts
+server/routes/orders.ts
+server/routes/staff.ts
+server/routes/upload.ts
+server/routes/wishlist.ts
+server/types
+server/types/catalogue.ts
+server/utils
+server/utils/auth.ts
+server/utils/csvHelpers.ts
+server/utils/distributorConfigs.ts
+server/utils/excelHelpers.ts
+server/utils/scrubber.ts
+tsconfig.json
+uploads
+uploads/Border In Stock May.xlsx
+uploads/Border Instock.xlsx
+uploads/Collective Distribution Catalogue May 2026.xlsx
+uploads/Collective Distribution In Stock CD List 09.03.2026.xlsx
+uploads/Collective Distribution In Stock Vinyl List 09.03.2026.xlsx
+uploads/Collective IS Vinyl List 09.03.2026.xlsx
+uploads/Flying Nun Records - Wholesale Stocklist 16 Feb 2026.csv
+uploads/In Stock - BORDER MAY.xlsx
+uploads/In Stock-BORDER-AUGUST.xlsx
+uploads/In Stock.xlsx
+uploads/SBinstock excel (1).xlsx
+uploads/SBinstock excel (2).xlsx
+uploads/SBinstock excel (3).xlsx
+uploads/SBinstock excel.xlsx
+uploads/SBinstock.xlsx
+uploads/Southbound Instock.xlsx
+uploads/Universal Music Catalogue May 2026.xlsx
+uploads/Vinyl In-Stock List - 11.5.26.xlsx
+uploads/Vinyl SOH - Rhythmethod 13.03.2026.xlsx
+uploads/Vinyl SOH - Sony 13.03.2026.xlsx
+uploads/Vinyl SOH - Warner 13.03.2026.xlsx
+uploads/Vinyl SOH Rhythmethod 10.06.2026.xlsx
+uploads/Vinyl SOH Rhythmethod 17.07.2026.xlsx
+uploads/Vinyl SOH Sony 17.07.2026.xlsx
+uploads/Vinyl SOH Warner 10.06.2026.xlsx
+uploads/Vinyl SOH Warner 17.07.2026.xlsx
+uploads/border_in_stock.xlsx
