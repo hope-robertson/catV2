@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
 import { useNavigate } from 'react-router-dom'
+import { API_BASE } from '../config.js'
 
 export default function Wishlist() {
   const { getAccessTokenSilently } = useAuth0()
@@ -15,7 +16,7 @@ export default function Wishlist() {
     queryFn: async () => {
       const token = await getAccessTokenSilently()
       const res = await request
-        .get('/api/v1/wishlist')
+        .get(`${API_BASE}/api/v1/wishlist`)
         .set('Authorization', `Bearer ${token}`)
       return res.body
     },
@@ -26,7 +27,7 @@ export default function Wishlist() {
     mutationFn: async (id: number) => {
       const token = await getAccessTokenSilently()
       await request
-        .delete(`/api/v1/wishlist/${id}`)
+        .delete(`${API_BASE}/api/v1/wishlist/${id}`)
         .set('Authorization', `Bearer ${token}`)
     },
     onSuccess: () => {

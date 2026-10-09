@@ -7,6 +7,7 @@ import { useAuth0 } from '@auth0/auth0-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import request from 'superagent'
 import ActiveOrderSidebar from './ActiveOrderSidebar.js'
+import { API_BASE } from '../config.js'
 
 export default function CatalogueList() {
   const { id } = useParams() // If undefined, we are in Global Mode
@@ -52,7 +53,7 @@ export default function CatalogueList() {
     mutationFn: async (master_catalogue_id: number) => {
       const token = await getAccessTokenSilently()
       await request
-        .post('/api/v1/wishlist')
+        .post(`${API_BASE}/api/v1/wishlist`)
         .set('Authorization', `Bearer ${token}`)
         .send({ master_catalogue_id })
     },
@@ -67,13 +68,13 @@ export default function CatalogueList() {
     try {
       const token = await getAccessTokenSilently()
       const orderRes = await request
-        .get(`/api/v1/orders/${id}`)
+        .get(`${API_BASE}/api/v1/orders/${id}`)
         .set('Authorization', `Bearer ${token}`)
       setBudgetLimit(orderRes.body.budget_limit)
       setSessionName(orderRes.body.name)
 
       const summaryRes = await request
-        .get(`/api/v1/orders/${id}/summary`)
+        .get(`${API_BASE}/api/v1/orders/${id}/summary`)
         .set('Authorization', `Bearer ${token}`)
       setOrderItems(summaryRes.body.items)
       setDbTotal(summaryRes.body.stats.totalCost)
@@ -94,7 +95,7 @@ export default function CatalogueList() {
         const token = await getAccessTokenSilently()
         if (id) {
           const orderRes = await request
-            .get(`/api/v1/orders/${id}`)
+            .get(`${API_BASE}/api/v1/orders/${id}`)
             .set('Authorization', `Bearer ${token}`)
           setDistFilter(orderRes.body.distributor)
           await syncOrderContext()
@@ -161,7 +162,7 @@ export default function CatalogueList() {
     try {
       const token = await getAccessTokenSilently()
       await request
-        .post(`/api/v1/orders/${id}/items`)
+        .post(`${API_BASE}/api/v1/orders/${id}/items`)
         .set('Authorization', `Bearer ${token}`)
         .send({
           master_catalogue_id: item.id,
@@ -179,7 +180,7 @@ export default function CatalogueList() {
     try {
       const token = await getAccessTokenSilently()
       await request
-        .delete(`/api/v1/orders/items/${itemId}`)
+        .delete(`${API_BASE}/api/v1/orders/items/${itemId}`)
         .set('Authorization', `Bearer ${token}`)
       await syncOrderContext()
     } catch (err) {
@@ -192,7 +193,7 @@ export default function CatalogueList() {
     try {
       const token = await getAccessTokenSilently()
       await request
-        .patch(`/api/v1/orders/${id}/finalize`)
+        .patch(`${API_BASE}/api/v1/orders/${id}/finalize`)
         .set('Authorization', `Bearer ${token}`)
 
       // 🎯 FIXED: Correctly route to review page!
@@ -211,7 +212,7 @@ export default function CatalogueList() {
     try {
       const token = await getAccessTokenSilently()
       await request
-        .delete(`/api/v1/orders/${id}`)
+        .delete(`${API_BASE}/api/v1/orders/${id}`)
         .set('Authorization', `Bearer ${token}`)
       navigate('/orders')
     } catch (err: any) {

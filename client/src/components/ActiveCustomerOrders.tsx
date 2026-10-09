@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
 import { useNavigate } from 'react-router-dom'
+import { API_BASE } from '../config.js'
 import { formatCurrency } from '../utils/pricing.js'
 
 export default function ActiveCustomerOrders() {
@@ -19,7 +20,7 @@ export default function ActiveCustomerOrders() {
     queryFn: async () => {
       const token = await getAccessTokenSilently()
       const res = await request
-        .get('/api/v1/customers/orders/active')
+        .get(`${API_BASE}/api/v1/customers/orders/active`)
         .set('Authorization', `Bearer ${token}`)
       return res.body
     },
@@ -37,7 +38,7 @@ export default function ActiveCustomerOrders() {
     }) => {
       const token = await getAccessTokenSilently()
       await request
-        .patch(`/api/v1/customers/orders/${id}`)
+        .patch(`${API_BASE}/api/v1/customers/orders/${id}`)
         .set('Authorization', `Bearer ${token}`)
         .send({ [field]: value })
     },
@@ -50,7 +51,7 @@ export default function ActiveCustomerOrders() {
     mutationFn: async (id: number) => {
       const token = await getAccessTokenSilently()
       await request
-        .delete(`/api/v1/customers/orders/${id}`)
+        .delete(`${API_BASE}/api/v1/customers/orders/${id}`)
         .set('Authorization', `Bearer ${token}`)
     },
     onSuccess: () => {
@@ -112,7 +113,6 @@ export default function ActiveCustomerOrders() {
           </p>
         </header>
 
-        {}
         {Object.keys(distributorGroups).length === 0 ? (
           <div className="bg-white p-10 rounded-3xl border-2 border-dashed border-gray-200 text-center shadow-sm">
             <p className="text-xs font-black uppercase text-gray-400 tracking-widest">
@@ -180,7 +180,6 @@ export default function ActiveCustomerOrders() {
         )}
       </section>
 
-      {}
       <section>
         <div className="flex justify-between items-end mb-6">
           <h3 className="text-xl font-black uppercase tracking-widest text-gray-900">
@@ -294,7 +293,6 @@ export default function ActiveCustomerOrders() {
                       {order.clerk_name}
                     </td>
 
-                    {}
                     <td className="px-4 py-4 text-center border-l border-gray-50 align-top pt-5">
                       <input
                         type="checkbox"
@@ -380,7 +378,6 @@ export default function ActiveCustomerOrders() {
                       />
                     </td>
                     <td className="px-4 py-4 text-center border-l border-gray-50 align-top pt-5">
-                      {}
                       {confirmDeleteId === order.docket_id ? (
                         <div className="flex flex-col gap-1 items-center">
                           <button

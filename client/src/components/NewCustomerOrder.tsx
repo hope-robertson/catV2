@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
+import { API_BASE } from '../config.js'
 import { useCatalogue } from '../hooks/useCatalogue.js'
 import {
   useCreateCustomerOrder,
@@ -33,7 +34,7 @@ export default function NewCustomerOrder() {
   const [isCustomerModalMinimized, setIsCustomerModalMinimized] =
     useState(false)
 
-  // 識 UI Filters
+  // UI Filters
   const [formatFilter, setFormatFilter] = useState('All Vinyl')
   const [sortOrder, setSortOrder] = useState('a-z')
 
@@ -44,7 +45,7 @@ export default function NewCustomerOrder() {
     notes: '',
   })
 
-  // 識 NZ Phone Validator
+  // NZ Phone Validator
   const validatePhone = (phone: string) => {
     // Check for letters
     if (/[a-zA-Z]/.test(phone)) {
@@ -75,7 +76,7 @@ export default function NewCustomerOrder() {
       try {
         const token = await getAccessTokenSilently()
         const res = await request
-          .get('/api/v1/admin/settings')
+          .get(`${API_BASE}/api/v1/admin/settings`)
           .set('Authorization', `Bearer ${token}`)
         const rateObj = res.body.settings.find(
           (s: any) => s.key === 'usd_exchange_rate',
@@ -93,7 +94,7 @@ export default function NewCustomerOrder() {
     performSearch(searchTerm, 'All', 'artist', 'All', 0)
   }, [searchTerm])
 
-  // 識 Filtered and Sorted Results
+  // Filtered and Sorted Results
   const processedResults = useMemo(() => {
     let filtered = [...results]
 
@@ -187,7 +188,7 @@ export default function NewCustomerOrder() {
           Search & Quote records
         </p>
 
-        {/* 識 Dropdowns and Search Bar Layout Adjusted */}
+        {/* Dropdowns and Search Bar Layout Adjusted */}
         <div className="mb-6 flex flex-col lg:flex-row gap-4 items-stretch lg:items-center">
           <div className="flex-1">
             {/* 🎯 Aligned with updated SearchBar signature */}

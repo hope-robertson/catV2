@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
+import { API_BASE } from '../config.js'
 import { formatCurrency } from '../utils/pricing.js'
 
 export default function CreateOrder() {
@@ -26,7 +27,7 @@ export default function CreateOrder() {
       try {
         const token = await getAccessTokenSilently()
         const res = await request
-          .get('/api/v1/customers/orders/active')
+          .get(`${API_BASE}/api/v1/customers/orders/active`)
           .set('Authorization', `Bearer ${token}`)
         setCustomerOrders(res.body || [])
       } catch (err) {
@@ -88,7 +89,7 @@ export default function CreateOrder() {
 
       // 1. Create the main shop order
       const orderRes = await request
-        .post('/api/v1/orders')
+        .post(`${API_BASE}/api/v1/orders`)
         .set('Authorization', `Bearer ${token}`)
         .send(form)
 
@@ -100,7 +101,7 @@ export default function CreateOrder() {
           const catalogueId = item.master_catalogue_id || item.id
           if (catalogueId) {
             await request
-              .post(`/api/v1/orders/${newOrderId}/items`)
+              .post(`${API_BASE}/api/v1/orders/${newOrderId}/items`)
               .set('Authorization', `Bearer ${token}`)
               .send({
                 master_catalogue_id: catalogueId,

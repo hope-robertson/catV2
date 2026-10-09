@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
+import { API_BASE } from '../config.js'
 
 export interface WishlistItem {
   wishlist_id: number
@@ -21,7 +22,7 @@ export function useWishlist() {
     queryFn: async () => {
       const token = await getAccessTokenSilently()
       const res = await request
-        .get('/api/v1/wishlist')
+        .get(`${API_BASE}/api/v1/wishlist`)
         .set('Authorization', `Bearer ${token}`)
       return res.body as WishlistItem[]
     },
@@ -37,7 +38,7 @@ export function useAddToWishlist() {
     mutationFn: async (master_catalogue_id: number) => {
       const token = await getAccessTokenSilently()
       const res = await request
-        .post('/api/v1/wishlist')
+        .post(`${API_BASE}/api/v1/wishlist`)
         .set('Authorization', `Bearer ${token}`)
         .send({ master_catalogue_id })
       return res.body
@@ -56,7 +57,7 @@ export function useRemoveFromWishlist() {
     mutationFn: async (wishlist_id: number) => {
       const token = await getAccessTokenSilently()
       const res = await request
-        .delete(`/api/v1/wishlist/${wishlist_id}`)
+        .delete(`${API_BASE}/api/v1/wishlist/${wishlist_id}`)
         .set('Authorization', `Bearer ${token}`)
       return res.body
     },

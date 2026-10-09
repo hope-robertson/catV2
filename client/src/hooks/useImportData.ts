@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth0 } from '@auth0/auth0-react'
+import { API_BASE } from '../config.js'
 
 export interface UploadResponse {
   message: string
@@ -14,7 +15,7 @@ export function useImportData() {
   return useMutation<UploadResponse, Error, FormData>({
     mutationFn: async (formData: FormData) => {
       const token = await getAccessTokenSilently()
-      const response = await fetch('/api/v1/catalogue/import', {
+      const response = await fetch(`${API_BASE}/api/v1/catalogue/import`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

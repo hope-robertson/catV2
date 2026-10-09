@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
 import { useNavigate } from 'react-router-dom'
+import { API_BASE } from '../config.js'
 import { formatCurrency } from '../utils/pricing.js'
 
 export default function ActiveOrders() {
@@ -18,7 +19,7 @@ export default function ActiveOrders() {
     queryFn: async () => {
       const token = await getAccessTokenSilently()
       const res = await request
-        .get('/api/v1/orders')
+        .get(`${API_BASE}/api/v1/orders`)
         .set('Authorization', `Bearer ${token}`)
       return res.body
     },

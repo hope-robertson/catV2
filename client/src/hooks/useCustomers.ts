@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
+import { API_BASE } from '../config.js'
 
 export interface Customer {
   id: number
@@ -26,7 +27,7 @@ export function useActiveCustomerOrders() {
     queryFn: async () => {
       const token = await getAccessTokenSilently()
       const res = await request
-        .get('/api/v1/customers/orders/active')
+        .get(`${API_BASE}/api/v1/customers/orders/active`)
         .set('Authorization', `Bearer ${token}`)
       return res.body
     },
@@ -44,7 +45,7 @@ export function useSearchCustomers(query: string) {
       if (!query) return []
       const token = await getAccessTokenSilently()
       const res = await request
-        .get('/api/v1/customers/search')
+        .get(`${API_BASE}/api/v1/customers/search`)
         .query({ q: query })
         .set('Authorization', `Bearer ${token}`)
       return res.body as Customer[]
@@ -65,7 +66,7 @@ export function useCreateCustomer() {
     }) => {
       const token = await getAccessTokenSilently()
       const res = await request
-        .post('/api/v1/customers')
+        .post(`${API_BASE}/api/v1/customers`)
         .set('Authorization', `Bearer ${token}`)
         .send(customerData)
       return res.body as Customer
@@ -90,7 +91,7 @@ export function useCreateCustomerOrder() {
     }) => {
       const token = await getAccessTokenSilently()
       const res = await request
-        .post(`/api/v1/customers/${customerId}/orders`)
+        .post(`${API_BASE}/api/v1/customers/${customerId}/orders`)
         .set('Authorization', `Bearer ${token}`)
         .send({ items, notes })
       return res.body

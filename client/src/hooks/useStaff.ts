@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
+import { API_BASE } from '../config.js'
 
 export interface StaffProfile {
   id: number
@@ -22,7 +23,7 @@ export function useStaff() {
       try {
         const token = await getAccessTokenSilently()
         const res = await request
-          .get('/api/v1/staff/me')
+          .get(`${API_BASE}/api/v1/staff/me`)
           .set('Authorization', `Bearer ${token}`)
 
         console.log('✅ [useStaff] Success:', res.body)

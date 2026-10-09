@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
+import { API_BASE } from '../config.js'
 import DataIntegrityDashboard from './DataIntegrityDashboard.js'
 
 export default function ImportData() {
@@ -31,7 +32,7 @@ export default function ImportData() {
   const fetchMasterStats = async () => {
     try {
       const token = await getAccessTokenSilently()
-      const res = await fetch('/api/v1/catalogue/master-stats', {
+      const res = await fetch(`${API_BASE}/api/v1/catalogue/master-stats`, {
         headers: { Authorization: `Bearer ${token}` },
       })
 
@@ -40,7 +41,7 @@ export default function ImportData() {
       const data = await res.json()
       setMasterTotal(data.total ?? 0)
 
-      const colRes = await fetch('/api/v1/catalogue/collisions', {
+      const colRes = await fetch(`${API_BASE}/api/v1/catalogue/collisions`, {
         headers: { Authorization: `Bearer ${token}` },
       })
       const collisions = await colRes.json()
@@ -66,13 +67,13 @@ export default function ImportData() {
       const token = await getAccessTokenSilently()
       const formData = new FormData()
       formData.append('stockFile', file)
-      const uploadRes = await fetch('/api/v1/upload', {
+      const uploadRes = await fetch(`${API_BASE}/api/v1/upload`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: formData,
       })
       const { filename } = await uploadRes.json()
-      const importRes = await fetch('/api/v1/catalogue/import', {
+      const importRes = await fetch(`${API_BASE}/api/v1/catalogue/import`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +95,7 @@ export default function ImportData() {
 
   const fetchPreview = async () => {
     const token = await getAccessTokenSilently()
-    const res = await fetch('/api/v1/catalogue/preview-staging', {
+    const res = await fetch(`${API_BASE}/api/v1/catalogue/preview-staging`, {
       headers: { Authorization: `Bearer ${token}` },
     })
     const data = await res.json()
@@ -106,7 +107,7 @@ export default function ImportData() {
     setIsConsolidating(true)
     try {
       const token = await getAccessTokenSilently()
-      const res = await fetch('/api/v1/catalogue/consolidate', {
+      const res = await fetch(`${API_BASE}/api/v1/catalogue/consolidate`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -129,7 +130,7 @@ export default function ImportData() {
     if (!window.confirm('Wipe all data in staging?')) return
     try {
       const token = await getAccessTokenSilently()
-      const res = await fetch('/api/v1/catalogue/clear-staging', {
+      const res = await fetch(`${API_BASE}/api/v1/catalogue/clear-staging`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })

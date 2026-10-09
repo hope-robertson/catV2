@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import request from 'superagent'
 import { MasterCatalogueRow } from '../models/catalogue.js'
+import { API_BASE } from '../config.js'
 
 export function useCatalogue() {
   const { getAccessTokenSilently } = useAuth0()
@@ -21,7 +22,7 @@ export function useCatalogue() {
       try {
         const token = await getAccessTokenSilently()
         const res = await request
-          .get('/api/v1/catalogue/search')
+          .get(`${API_BASE}/api/v1/catalogue/search`)
           .set('Authorization', `Bearer ${token}`)
           .query({ q: query, distributor, sort, format, offset })
 
