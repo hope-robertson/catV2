@@ -1,7 +1,9 @@
 import request from 'superagent'
 import { MasterCatalogueRow } from '../models/catalogue.js'
 
-const rootUrl = '/api/v1/catalogue'
+// Prefixes the Railway production backend URL on Vercel, while falling back to relative path in dev (for Vite proxy)
+const baseUrl = import.meta.env.VITE_API_URL || ''
+const rootUrl = `${baseUrl}/api/v1/catalogue`
 
 export async function searchCatalogue(
   query: string,
