@@ -10,8 +10,25 @@ const config = {
     client: 'sqlite3',
     useNullAsDefault: true,
     connection: {
-      // Changed back to your preferred filename
       filename: Path.join(__dirname, 'server', 'db', 'catV2.sqlite3'),
+    },
+    pool: {
+      afterCreate: (conn, cb) => conn.run('PRAGMA foreign_keys = ON', cb),
+    },
+    migrations: {
+      directory: Path.join(__dirname, 'server', 'db', 'migrations'),
+    },
+    seeds: {
+      directory: Path.join(__dirname, 'server', 'db', 'seeds'),
+    },
+  },
+  production: {
+    client: 'sqlite3',
+    useNullAsDefault: true,
+    connection: {
+      filename:
+        process.env.DATABASE_URL ||
+        Path.join(__dirname, 'server', 'db', 'catV2.sqlite3'),
     },
     pool: {
       afterCreate: (conn, cb) => conn.run('PRAGMA foreign_keys = ON', cb),
