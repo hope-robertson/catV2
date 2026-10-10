@@ -1,6 +1,7 @@
 import * as dotenv from 'dotenv'
 dotenv.config()
 import express from 'express'
+import cors from 'cors'
 import * as Path from 'node:path'
 
 import uploadRouter from './routes/upload.js'
@@ -14,6 +15,35 @@ import { checkJwt } from './utils/auth.js'
 
 const server = express()
 const PORT = process.env.PORT || 3000
+
+// 🎯 CORS Configuration for Vercel & Local Dev
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:3000',
+  process.env.CLIENT_URL,
+].filter(Boolean) as string[]
+
+server.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow non-browser requests (e.g., curl, mobile apps, server-to-server)
+      if (!origin) return callback(null, true)
+
+      // Allow if origin matches allowed list or any Vercel domain/preview deployment
+      const isAllowed =
+        allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)
+
+      if (isAllowed) {
+        callback(null, true)
+      } else {
+        callback(new Error(`CORS blocked request from origin: ${origin}`))
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }),
+)
 
 server.use(express.json())
 server.use(express.static(Path.join(Path.resolve(), 'public')))
