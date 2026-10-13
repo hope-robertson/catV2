@@ -125,15 +125,15 @@ export async function getMasterCatalogue(limit = 50, offset = 0) {
 }
 
 /**
- * 🎯 SMART SEARCH & SORT with Pagination
+ * SMART SEARCH & SORT with Pagination[cite: 12]
  */
 export async function searchMasterCatalogue(
   query: string,
   distributor: string = 'All',
   sort: string = 'artist',
   format: string = 'All',
-  limit: number = 50, // 🎯 Page size
-  offset: number = 0, // 🎯 Skip count
+  limit: number,
+  offset: number = 0,
 ) {
   const term = `%${query}%`
   let queryBuilder = knex<MasterCatalogueRow>('master_catalogue').select('*')
@@ -149,13 +149,20 @@ export async function searchMasterCatalogue(
     })
   }
 
-  // 🎯 THE FIX: Auto-Group Sony and Warner into Rhythmethod!
+  // Flexible Distributor Grouping for Rhythmethod & Collective variants
   if (distributor && distributor !== 'All') {
     if (distributor === 'Rhythmethod') {
       queryBuilder = queryBuilder.whereIn('source_distributor', [
         'Rhythmethod',
         'Sony Music',
         'Warner Music',
+      ])
+    } else if (distributor.toLowerCase().includes('collective')) {
+      queryBuilder = queryBuilder.whereIn('source_distributor', [
+        'Collective (LP)',
+        'Collective (CD)',
+        'Collective Distribution',
+        'Collective',
       ])
     } else {
       queryBuilder = queryBuilder.andWhere('source_distributor', distributor)
