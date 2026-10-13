@@ -125,14 +125,14 @@ export async function getMasterCatalogue(limit = 50, offset = 0) {
 }
 
 /**
- * SMART SEARCH & SORT with Pagination[cite: 12]
+ * SMART SEARCH & SORT with Pagination
  */
 export async function searchMasterCatalogue(
   query: string,
   distributor: string = 'All',
   sort: string = 'artist',
   format: string = 'All',
-  limit: number,
+  limit: number = 50,
   offset: number = 0,
 ) {
   const term = `%${query}%`
@@ -149,23 +149,30 @@ export async function searchMasterCatalogue(
     })
   }
 
-  // Flexible Distributor Grouping for Rhythmethod & Collective variants
+  // 🎯 Flexible & Universal Distributor Matching using Wildcards
   if (distributor && distributor !== 'All') {
-    if (distributor === 'Rhythmethod') {
-      queryBuilder = queryBuilder.whereIn('source_distributor', [
-        'Rhythmethod',
-        'Sony Music',
-        'Warner Music',
-      ])
-    } else if (distributor.toLowerCase().includes('collective')) {
-      queryBuilder = queryBuilder.whereIn('source_distributor', [
-        'Collective (LP)',
-        'Collective (CD)',
-        'Collective Distribution',
-        'Collective',
-      ])
+    const lowerDist = distributor.toLowerCase()
+
+    if (lowerDist.includes('rhythmethod')) {
+      queryBuilder = queryBuilder.where((builder) => {
+        builder
+          .where('source_distributor', 'ilike', '%rhythmethod%')
+          .orWhere('source_distributor', 'ilike', '%sony%')
+          .orWhere('source_distributor', 'ilike', '%warner%')
+      })
+    } else if (lowerDist.includes('collective')) {
+      queryBuilder = queryBuilder.where(
+        'source_distributor',
+        'ilike',
+        '%collective%',
+      )
     } else {
-      queryBuilder = queryBuilder.andWhere('source_distributor', distributor)
+      const cleanDist = distributor.replace(/\s*\([^)]*\)/g, '').trim()
+      queryBuilder = queryBuilder.where(
+        'source_distributor',
+        'ilike',
+        `%${cleanDist}%`,
+      )
     }
   }
 
