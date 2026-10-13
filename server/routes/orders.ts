@@ -93,16 +93,22 @@ router.post(
   async (req: AuthRequest, res: Response) => {
     try {
       const { name, distributor, budget_limit } = req.body
-      const [newOrderId] = await knex('orders').insert({
-        name: name || 'New Mission',
-        distributor,
-        budget_limit: budget_limit || 1000,
-        status: 'active',
-        created_by_id: req.dbUser?.id,
-      })
+
+      const [inserted] = await knex('orders')
+        .insert({
+          name: name || 'New Mission',
+          distributor,
+          budget_limit: budget_limit || 1000,
+          status: 'active',
+          created_by_id: req.dbUser?.id,
+        })
+        .returning('id')
+
+      const newOrderId = typeof inserted === 'object' ? inserted.id : inserted
       res.status(201).json({ id: newOrderId })
     } catch (error: any) {
-      res.status(500).json({ message: 'Init failed' })
+      console.error('CRITICAL ORDER INIT ERROR:', error.message, error.stack)
+      res.status(500).json({ message: 'Init failed', error: error.message })
     }
   },
 )
