@@ -19,11 +19,12 @@ export function mapCollectiveRow(
     return null
   }
 
-  // 🎯 REALIGNED COLUMNS
-  const artist = getText(3) // Was 1
-  let title = getText(4) || '' // Was 2
-  const catalogue_number = getText(2) // Was 3
-  const barcode = getText(1) // Was 4
+  // 🎯 Correctly mapped to Excel columns:
+  // 1: ARTIST, 2: TITLE, 3: CAT #, 4: BARCODE, 5: FORMAT, 6: PRICE
+  const artist = getText(1)
+  let title = getText(2) || ''
+  const catalogue_number = getText(3)
+  const barcode = getText(4)
   const formatValue = getText(5) || ''
 
   // Checking if title ends with the same format code as in format column, chops if true
