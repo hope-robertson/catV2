@@ -5,7 +5,7 @@
   "main": "server/index.ts",
   "type": "module",
   "scripts": {
-    "start": "node dist/server/index.js",
+    "start": "NODE_ENV=production node dist/server/index.js",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
     "dev:server": "nodemon --watch server --ext ts,tsx --exec tsx server/index.ts",
     "dev:client": "vite client --config client/vite.config.ts",
