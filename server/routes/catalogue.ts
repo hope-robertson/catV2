@@ -35,12 +35,20 @@ router.get('/master', async (req: Request, res: Response) => {
 router.get('/search', async (req: Request, res: Response) => {
   try {
     const q = (req.query.q as string) || ''
-    const distributor = (req.query.distributor as string) || 'All'
+    let distributor = (req.query.distributor as string) || 'All'
+
+    // 🎯 Normalize distributor query parameters to match database source values
+    if (distributor.includes('Collective')) {
+      distributor = 'Collective Distribution'
+    } else if (distributor.includes('Rhythmethod')) {
+      distributor = 'Rhythmethod'
+    }
+
     const sort = (req.query.sort as string) || 'artist'
     const format = (req.query.format as string) || 'All'
-    const offset = Number(req.query.offset) || 0 // 🎯 Receive offset from client
+    const offset = Number(req.query.offset) || 0 // 🎯 Receive offset from client[cite: 9]
 
-    // 🎯 Pass offset to DB (limit defaults to 50 in db function)
+    // 🎯 Pass offset to DB (limit defaults to 50 in db function)[cite: 9]
     const results = await db.searchMasterCatalogue(
       q,
       distributor,
