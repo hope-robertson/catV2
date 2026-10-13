@@ -24,6 +24,7 @@ export default function CatalogueList() {
   const [sortOrder, setSortOrder] = useState('a-z')
   const [searchTerm, setSearchTerm] = useState('')
   const [offset, setOffset] = useState(0)
+  const [orderLoaded, setOrderLoaded] = useState(false) // 🎯 Guard flag to prevent premature searching
   const observerTarget = useRef<HTMLDivElement | null>(null)
 
   // 🎯 Dedicated error state to catch silent failures
@@ -102,20 +103,28 @@ export default function CatalogueList() {
         }
       } catch (err) {
         console.error(err)
+      } finally {
+        setOrderLoaded(true) // 🎯 Unlock search once order context is resolved
       }
     }
-    init()
+
+    if (id) {
+      init()
+    } else {
+      setOrderLoaded(true) // Global mode is ready immediately
+    }
   }, [id])
 
   useEffect(() => {
+    if (id && !orderLoaded) return // 🎯 Hold off until the order's correct distributor is loaded
     setOffset(0)
     performSearch(searchTerm, distFilter, 'artist', 'All', 0)
-  }, [searchTerm, distFilter])
+  }, [searchTerm, distFilter, orderLoaded, id])
 
   useEffect(() => {
-    if (offset > 0)
+    if (offset > 0 && orderLoaded)
       performSearch(searchTerm, distFilter, 'artist', 'All', offset)
-  }, [offset])
+  }, [offset, orderLoaded])
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -196,7 +205,6 @@ export default function CatalogueList() {
         .patch(`${API_BASE}/api/v1/orders/${id}/finalize`)
         .set('Authorization', `Bearer ${token}`)
 
-      // 🎯 FIXED: Correctly route to review page!
       navigate(`/orders/${id}/review`)
     } catch (err: any) {
       console.error('Finalize failed:', err)
@@ -223,7 +231,7 @@ export default function CatalogueList() {
 
   const handleReset = () => {
     setSearchTerm('')
-    setDistFilter('All')
+    if (!id) setDistFilter('All')
     setSortOrder('a-z')
     setFormatFilter('All Vinyl')
   }
@@ -246,7 +254,7 @@ export default function CatalogueList() {
         </p>
       </header>
 
-      {/* 🎯 Visible Error Banner */}
+      {/* Visible Error Banner */}
       {actionError && (
         <div className="bg-red-50 border-2 border-red-200 text-red-700 p-4 rounded-2xl shadow-sm">
           <p className="font-black uppercase text-[10px] tracking-widest mb-1">
@@ -282,7 +290,7 @@ export default function CatalogueList() {
           Reset
         </button>
 
-        {/* 🎯 CONDITIONAL DISTRIBUTOR DROPDOWN */}
+        {/* CONDITIONAL DISTRIBUTOR DROPDOWN */}
         {id ? (
           <div className="bg-blue-50 border border-blue-100 text-blue-700 py-2.5 px-4 rounded-xl font-black text-[10px] uppercase tracking-widest whitespace-nowrap">
             {distFilter === 'Rhythmethod'
@@ -353,7 +361,6 @@ export default function CatalogueList() {
             <tbody className="divide-y divide-gray-50">
               {processedResults.map((item) => {
                 const qtyInOrder = getItemQuantityInOrder(item.id)
-                // Determine if the row should be highlighted
                 const isSelected = qtyInOrder > 0
 
                 return (
@@ -400,7 +407,6 @@ export default function CatalogueList() {
                       }`}
                     >
                       <div className="flex items-center justify-center gap-2">
-                        {/* ACTION BUTTONS */}
                         {id ? (
                           isTrusted ? (
                             <button
