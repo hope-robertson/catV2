@@ -141,11 +141,11 @@ export async function searchMasterCatalogue(
   if (query) {
     queryBuilder = queryBuilder.where((builder) => {
       builder
-        .where('artist', 'like', term)
-        .orWhere('title', 'like', term)
-        .orWhere('barcode', 'like', term)
-        .orWhere('catalogue_number', 'like', term)
-        .orWhere('label', 'like', term)
+        .where('artist', 'ilike', term)
+        .orWhere('title', 'ilike', term)
+        .orWhere('barcode', 'ilike', term)
+        .orWhere('catalogue_number', 'ilike', term)
+        .orWhere('label', 'ilike', term)
     })
   }
 
@@ -177,7 +177,7 @@ export async function searchMasterCatalogue(
   }
 
   if (format && format !== 'All') {
-    queryBuilder = queryBuilder.andWhere('format', 'like', `%${format}%`)
+    queryBuilder = queryBuilder.andWhere('format', 'ilike', `%${format}%`)
   }
 
   if (sort === 'high') {
