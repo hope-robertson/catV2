@@ -4,7 +4,7 @@ import { useAuth0 } from '@auth0/auth0-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import request from 'superagent'
 import { API_BASE } from '../config.js'
-import { Shield, Users, Database, Settings as SettingsIcon } from 'lucide-react'
+import { Shield, Users, UserPlus } from 'lucide-react'
 
 // Classic 90s OS button style consistent with your NavBar
 const WinButton = ({ children, className = '', ...props }: any) => (
@@ -21,6 +21,10 @@ export default function AdminPanel() {
   const queryClient = useQueryClient()
   const [actionMessage, setActionMessage] = useState<string | null>(null)
 
+  // Form state for adding a new user
+  const [newEmail, setNewEmail] = useState('')
+  const [newName, setNewName] = useState('')
+
   // Fetch staff list for management
   const {
     data: staffList,
@@ -34,6 +38,29 @@ export default function AdminPanel() {
         .get(`${API_BASE}/api/v1/staff`)
         .set('Authorization', `Bearer ${token}`)
       return res.body
+    },
+  })
+
+  // Add staff mutation
+  const addStaffMutation = useMutation({
+    mutationFn: async ({ email, name }: { email: string; name?: string }) => {
+      const token = await getAccessTokenSilently()
+      await request
+        .post(`${API_BASE}/api/v1/admin/staff/invite`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ email, name })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminStaffList'] })
+      setActionMessage('Staff member added successfully.')
+      setNewEmail('')
+      setNewName('')
+      setTimeout(() => setActionMessage(null), 3000)
+    },
+    onError: (err: any) => {
+      setActionMessage(
+        `Failed to add staff: ${err.response?.body?.message || err.message}`,
+      )
     },
   })
 
@@ -64,6 +91,15 @@ export default function AdminPanel() {
     },
   })
 
+  const handleAddStaff = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!newEmail.trim()) return
+    addStaffMutation.mutate({
+      email: newEmail.trim(),
+      name: newName.trim() || undefined,
+    })
+  }
+
   return (
     <div className="space-y-6 pb-20 max-w-5xl mx-auto">
       {/* OS Window Header */}
@@ -80,6 +116,40 @@ export default function AdminPanel() {
           </div>
         )}
 
+        {/* ➕ ADD NEW STAFF SECTION */}
+        <div className="p-4 bg-white border border-gray-300 shadow-inner mb-6">
+          <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <UserPlus size={16} /> Add New Staff Member
+          </h3>
+          <form
+            onSubmit={handleAddStaff}
+            className="grid grid-cols-1 md:grid-cols-3 gap-3"
+          >
+            <input
+              type="text"
+              placeholder="Staff Name (Optional)"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className="p-2 border border-gray-300 text-xs font-mono rounded"
+            />
+            <input
+              required
+              type="email"
+              placeholder="staff.email@example.com"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              className="p-2 border border-gray-300 text-xs font-mono rounded"
+            />
+            <WinButton
+              type="submit"
+              className="justify-center font-bold text-xs py-2"
+            >
+              Add to Roster
+            </WinButton>
+          </form>
+        </div>
+
+        {/* STAFF LIST SECTION */}
         <div className="p-4 bg-white border border-gray-300 shadow-inner">
           <h3 className="text-sm font-black text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
             <Users size={16} /> Staff Permission Control

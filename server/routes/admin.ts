@@ -70,76 +70,48 @@ router.get('/staff', checkJwt, authorizeUser, async (req, res) => {
   }
 })
 
-// 🏴‍☠️ RECRUITMENT (With Smart Upsert & Auto-Bootstrap)
+// ➕ ADD NEW STAFF MEMBER BY EMAIL (Admin Action)
 router.post(
-  '/staff',
+  '/staff/invite',
   checkJwt,
-  // 🎯 Removed authorizeUser here so the first account can be created/linked
-  async (req: any, res) => {
-    const { name, email, phone } = req.body
-    const authId = req.auth?.payload?.sub
-
+  authorizeUser,
+  async (req: UserRequest, res: Response | any) => {
     try {
+      const { email, name } = req.body
+      if (!email) {
+        return res.status(400).json({ message: 'Email address is required.' })
+      }
+
+      // Check if staff member already exists
+      const existing = await knex('staff').where({ email }).first()
+      if (existing) {
+        return res
+          .status(400)
+          .json({ message: 'A staff profile with this email already exists.' })
+      }
+
+      const staffName = name || email.split('@')[0]
+
       await knex.transaction(async (trx) => {
-        // 🎯 Check if ANY admins currently exist in the system.
-        // If 0, the person making this request gets promoted automatically!
-        const adminCountData = await trx('staff')
-          .where('is_admin', true)
-          .count('id as count')
-          .first()
-        const noAdminsExist = Number(adminCountData?.count) === 0
+        const [insertedId] = await trx('staff').insert({
+          name: staffName,
+          email,
+          is_admin: false,
+          is_trusted_orderer: false,
+          has_completed_onboarding: false,
+        })
 
-        // 🎯 Check if this email already exists (e.g. from seed data)
-        const existingStaff = await trx('staff').where({ email }).first()
-
-        let staffIdToQueue
-
-        if (existingStaff) {
-          // UPDATE: Link the Auth0 ID and promote if no admins exist
-          await trx('staff')
-            .where({ id: existingStaff.id })
-            .update({
-              name,
-              phone: phone || existingStaff.phone,
-              auth_id: noAdminsExist ? authId : existingStaff.auth_id,
-              is_admin: noAdminsExist ? true : existingStaff.is_admin,
-              is_trusted_orderer: noAdminsExist
-                ? true
-                : existingStaff.is_trusted_orderer,
-              has_completed_onboarding: noAdminsExist
-                ? true
-                : existingStaff.has_completed_onboarding,
-              updated_at: knex.fn.now(),
-            })
-          staffIdToQueue = existingStaff.id
-          console.log(`🔗 Existing profile updated/linked for: ${email}`)
-        } else {
-          // INSERT: Brand new record
-          const [insertedId] = await trx('staff').insert({
-            name,
-            email,
-            phone: phone || null,
-            auth_id: noAdminsExist ? authId : null,
-            is_admin: noAdminsExist,
-            is_trusted_orderer: noAdminsExist,
-            has_completed_onboarding: noAdminsExist,
-          })
-          staffIdToQueue = insertedId
-          console.log(`➕ New profile created for: ${email}`)
-        }
-
-        // --- Fetch & Update Rotations ---
+        // Add to existing duty rotations queue if needed
         const rotations = await trx('duty_rotations').select(
           'id',
           'queue_order',
         )
-
         for (const rotation of rotations) {
           const currentQueue: number[] = JSON.parse(
             rotation.queue_order || '[]',
           )
-          if (!currentQueue.includes(staffIdToQueue)) {
-            currentQueue.push(staffIdToQueue)
+          if (!currentQueue.includes(insertedId)) {
+            currentQueue.push(insertedId)
           }
           await trx('duty_rotations')
             .where('id', rotation.id)
@@ -152,15 +124,87 @@ router.post(
 
       res
         .status(201)
-        .json({ message: 'Crew member recruited/linked successfully.' })
+        .json({ message: `Staff member ${email} added successfully.` })
     } catch (error) {
-      console.error('🔥 Recruitment failed:', error)
-      res
-        .status(500)
-        .json({ message: 'Recruitment failed: Database sync error.' })
+      console.error('🔥 Failed to add staff member:', error)
+      res.status(500).json({ message: 'Failed to add staff member.' })
     }
   },
 )
+
+// 🏴‍☠️ RECRUITMENT (With Smart Upsert & Auto-Bootstrap)
+router.post('/staff', checkJwt, async (req: any, res) => {
+  const { name, email, phone } = req.body
+  const authId = req.auth?.payload?.sub
+
+  try {
+    await knex.transaction(async (trx) => {
+      const adminCountData = await trx('staff')
+        .where('is_admin', true)
+        .count('id as count')
+        .first()
+      const noAdminsExist = Number(adminCountData?.count) === 0
+
+      const existingStaff = await trx('staff').where({ email }).first()
+
+      let staffIdToQueue
+
+      if (existingStaff) {
+        await trx('staff')
+          .where({ id: existingStaff.id })
+          .update({
+            name,
+            phone: phone || existingStaff.phone,
+            auth_id: noAdminsExist ? authId : existingStaff.auth_id,
+            is_admin: noAdminsExist ? true : existingStaff.is_admin,
+            is_trusted_orderer: noAdminsExist
+              ? true
+              : existingStaff.is_trusted_orderer,
+            has_completed_onboarding: noAdminsExist
+              ? true
+              : existingStaff.has_completed_onboarding,
+            updated_at: knex.fn.now(),
+          })
+        staffIdToQueue = existingStaff.id
+      } else {
+        const [insertedId] = await trx('staff').insert({
+          name,
+          email,
+          phone: phone || null,
+          auth_id: noAdminsExist ? authId : null,
+          is_admin: noAdminsExist,
+          is_trusted_orderer: noAdminsExist,
+          has_completed_onboarding: noAdminsExist,
+        })
+        staffIdToQueue = insertedId
+      }
+
+      const rotations = await trx('duty_rotations').select('id', 'queue_order')
+
+      for (const rotation of rotations) {
+        const currentQueue: number[] = JSON.parse(rotation.queue_order || '[]')
+        if (!currentQueue.includes(staffIdToQueue)) {
+          currentQueue.push(staffIdToQueue)
+        }
+        await trx('duty_rotations')
+          .where('id', rotation.id)
+          .update({
+            queue_order: JSON.stringify(currentQueue),
+            updated_at: knex.fn.now(),
+          })
+      }
+    })
+
+    res
+      .status(201)
+      .json({ message: 'Crew member recruited/linked successfully.' })
+  } catch (error) {
+    console.error('🔥 Recruitment failed:', error)
+    res
+      .status(500)
+      .json({ message: 'Recruitment failed: Database sync error.' })
+  }
+})
 
 router.patch('/staff/:id', checkJwt, authorizeUser, async (req, res) => {
   const { id } = req.params
