@@ -4,7 +4,7 @@ import { useAuth0 } from '@auth0/auth0-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import request from 'superagent'
 import { API_BASE } from '../config.js'
-import { Shield, Users, UserPlus } from 'lucide-react'
+import { Shield, Users, UserPlus, Trash2 } from 'lucide-react'
 
 // Classic 90s OS button style consistent with your NavBar
 const WinButton = ({ children, className = '', ...props }: any) => (
@@ -60,6 +60,26 @@ export default function AdminPanel() {
     onError: (err: any) => {
       setActionMessage(
         `Failed to add staff: ${err.response?.body?.message || err.message}`,
+      )
+    },
+  })
+
+  // Delete staff mutation
+  const deleteStaffMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const token = await getAccessTokenSilently()
+      await request
+        .delete(`${API_BASE}/api/v1/admin/staff/${id}`)
+        .set('Authorization', `Bearer ${token}`)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['adminStaffList'] })
+      setActionMessage('Staff member removed successfully.')
+      setTimeout(() => setActionMessage(null), 3000)
+    },
+    onError: (err: any) => {
+      setActionMessage(
+        `Failed to delete staff: ${err.response?.body?.message || err.message}`,
       )
     },
   })
@@ -200,18 +220,34 @@ export default function AdminPanel() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <WinButton
-                          onClick={() =>
-                            updateStaffMutation.mutate({
-                              id: staff.id,
-                              is_admin: !staff.is_admin,
-                              is_trusted_orderer: staff.is_trusted_orderer,
-                            })
-                          }
-                          className="text-[10px] mx-auto"
-                        >
-                          Toggle Admin
-                        </WinButton>
+                        <div className="flex justify-center gap-2">
+                          <WinButton
+                            onClick={() =>
+                              updateStaffMutation.mutate({
+                                id: staff.id,
+                                is_admin: !staff.is_admin,
+                                is_trusted_orderer: staff.is_trusted_orderer,
+                              })
+                            }
+                            className="text-[10px]"
+                          >
+                            Toggle Admin
+                          </WinButton>
+                          <WinButton
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Are you sure you want to remove ${staff.name || staff.email} from the roster?`,
+                                )
+                              ) {
+                                deleteStaffMutation.mutate(staff.id)
+                              }
+                            }}
+                            className="text-[10px] bg-red-100 hover:bg-red-200 text-red-700"
+                          >
+                            <Trash2 size={12} /> Remove
+                          </WinButton>
+                        </div>
                       </td>
                     </tr>
                   ))}

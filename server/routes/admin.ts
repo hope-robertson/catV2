@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { Response } from 'express'
 import { checkJwt } from '../auth0/auth.js'
 import { authorizeUser, UserRequest } from '../auth0/permissions.js'
 import knex from '../db/connection.js'
@@ -70,7 +70,7 @@ router.get('/staff', checkJwt, authorizeUser, async (req, res) => {
   }
 })
 
-// ➕ ADD NEW STAFF MEMBER BY EMAIL (Admin Action)
+// ➕ ADD NEW STAFF MEMBER BY EMAIL (Admin Action)[cite: 15]
 router.post(
   '/staff/invite',
   checkJwt,
@@ -132,7 +132,29 @@ router.post(
   },
 )
 
-// 🏴‍☠️ RECRUITMENT (With Smart Upsert & Auto-Bootstrap)
+// 🗑️ DELETE /api/v1/admin/staff/:id (Remove a staff member from the roster)
+router.delete(
+  '/staff/:id',
+  checkJwt,
+  authorizeUser,
+  async (req: UserRequest, res: Response | any) => {
+    const { id } = req.params
+    try {
+      await knex('staff').where({ id }).del()
+      res.json({ message: 'Staff member removed successfully.' })
+    } catch (error) {
+      console.error('🔥 Failed to delete staff member:', error)
+      res
+        .status(500)
+        .json({
+          message:
+            'Failed to delete staff member. Check for dependent records.',
+        })
+    }
+  },
+)
+
+// 🏴‍☠️ RECRUITMENT (With Smart Upsert & Auto-Bootstrap)[cite: 15]
 router.post('/staff', checkJwt, async (req: any, res) => {
   const { name, email, phone } = req.body
   const authId = req.auth?.payload?.sub
@@ -209,7 +231,7 @@ router.post('/staff', checkJwt, async (req: any, res) => {
 router.patch('/staff/:id', checkJwt, authorizeUser, async (req, res) => {
   const { id } = req.params
   try {
-    await knex('staff').where('id', id).update(req.body)
+    await knex('staff').where({ id }).update(req.body)
     res.json({ message: 'Staff record updated' })
   } catch (error) {
     res.status(500).json({ message: 'Update failed' })
