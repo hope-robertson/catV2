@@ -38,13 +38,26 @@ router.patch(
     const { is_admin, is_trusted_orderer } = req.body
 
     try {
-      await knex('staff')
-        .where({ id })
-        .update({
-          ...(is_admin !== undefined && { is_admin }),
-          ...(is_trusted_orderer !== undefined && { is_trusted_orderer }),
-          updated_at: knex.fn.now(),
-        })
+      const updatedFields: any = {
+        updated_at: knex.fn.now(),
+      }
+
+      if (is_admin !== undefined) {
+        updatedFields.is_admin = is_admin
+        // 🎯 Enforce rule: All admins are automatically trusted orderers
+        if (is_admin) {
+          updatedFields.is_trusted_orderer = true
+        }
+      }
+
+      if (is_trusted_orderer !== undefined) {
+        // Only override if is_admin wasn't explicitly turning them into an admin
+        if (!updatedFields.is_admin) {
+          updatedFields.is_trusted_orderer = is_trusted_orderer
+        }
+      }
+
+      await knex('staff').where({ id }).update(updatedFields)
 
       res.json({ message: 'Staff record updated successfully' })
     } catch (error: any) {
