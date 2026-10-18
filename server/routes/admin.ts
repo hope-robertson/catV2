@@ -130,9 +130,16 @@ router.post(
       res
         .status(201)
         .json({ message: `Staff member ${email} added successfully.` })
-    } catch (error) {
-      console.error('🔥 Failed to add staff member:', error)
-      res.status(500).json({ message: 'Failed to add staff member.' })
+    } catch (error: any) {
+      console.error(
+        '🔥 Failed to add staff member:',
+        error.message,
+        error.stack,
+      )
+      res.status(500).json({
+        message: 'Failed to add staff member',
+        error: error.message,
+      })
     }
   },
 )
@@ -147,13 +154,13 @@ router.delete(
     try {
       await knex('staff').where({ id }).del()
       res.json({ message: 'Staff member removed successfully.' })
-    } catch (error) {
-      console.error('🔥 Failed to delete staff member:', error)
+    } catch (error: any) {
+      console.error('🔥 Failed to delete staff member:', error.message)
       res
         .status(500)
         .json({
-          message:
-            'Failed to delete staff member. Check for dependent records.',
+          message: 'Failed to delete staff member',
+          error: error.message,
         })
     }
   },
@@ -228,11 +235,11 @@ router.post('/staff', checkJwt, async (req: any, res) => {
     res
       .status(201)
       .json({ message: 'Crew member recruited/linked successfully.' })
-  } catch (error) {
-    console.error('🔥 Recruitment failed:', error)
+  } catch (error: any) {
+    console.error('🔥 Recruitment failed:', error.message)
     res
       .status(500)
-      .json({ message: 'Recruitment failed: Database sync error.' })
+      .json({ message: 'Recruitment failed', error: error.message })
   }
 })
 
@@ -241,8 +248,8 @@ router.patch('/staff/:id', checkJwt, authorizeUser, async (req, res) => {
   try {
     await knex('staff').where({ id }).update(req.body)
     res.json({ message: 'Staff record updated' })
-  } catch (error) {
-    res.status(500).json({ message: 'Update failed' })
+  } catch (error: any) {
+    res.status(500).json({ message: 'Update failed', error: error.message })
   }
 })
 
