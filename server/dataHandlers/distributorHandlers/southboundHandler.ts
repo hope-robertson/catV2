@@ -1,3 +1,4 @@
+// server/routes/distributorHandlers/southboundHandler.ts
 import { Row } from 'exceljs'
 import { CatalogueRow } from '../../types/catalogue.js'
 
@@ -17,14 +18,14 @@ export function mapSouthboundRow(row: Row): CatalogueRow {
     return isNaN(parsed) ? null : parsed
   }
 
-  // 🎯 NEW SOUTHBOUND LAYOUT:
-  // 1:Cat No, 2:Description, 3:Dealer (Price), 4:Format, 5:BarCode, 6:Label, 7:Genre
-  const rawDescription = getText(2) || ''
-  const priceValue = getPrice(3)
-  const formatValue = getText(4)
-  const labelValue = getText(6)
-  const genreValue = getText(7)
-  const barcodeValue = getText(5)
+  // 🎯 CORRECTED SOUTHBOUND LAYOUT (Offset by +1 due to Order Qty column):
+  // 1: Order Qty (blank), 2: Cat No, 3: Description, 4: Dealer (Price), 5: Format, 6: BarCode, 7: Label, 8: Genre
+  const rawDescription = getText(3) || ''
+  const priceValue = getPrice(4)
+  const formatValue = getText(5)
+  const barcodeValue = getText(6)
+  const labelValue = getText(7)
+  const genreValue = getText(8)
 
   let finalArtist = null
   let finalTitle = rawDescription
@@ -54,7 +55,7 @@ export function mapSouthboundRow(row: Row): CatalogueRow {
     distributor: 'Southbound Distribution Limited',
     artist: finalArtist,
     title: finalTitle,
-    catalogue_number: getText(1),
+    catalogue_number: getText(2),
     barcode: barcodeValue,
     format: formatValue || '',
     price: priceValue,
