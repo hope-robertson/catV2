@@ -166,6 +166,12 @@ export async function searchMasterCatalogue(
         'ilike',
         '%collective%',
       )
+    } else if (lowerDist.includes('universal')) {
+      queryBuilder = queryBuilder.where(
+        'source_distributor',
+        'ilike',
+        '%universal%',
+      )
     } else {
       const cleanDist = distributor.replace(/\s*\([^)]*\)/g, '').trim()
       queryBuilder = queryBuilder.where(
