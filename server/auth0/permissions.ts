@@ -12,7 +12,6 @@ export interface UserRequest extends Request {
     is_admin: boolean // 👈 ADDED THIS
     is_trusted_orderer: boolean
     has_completed_onboarding: boolean
-    // role: string // 👈 YOU CAN REMOVE THIS NOW
   }
 }
 
@@ -23,7 +22,9 @@ export async function authorizeUser(
 ) {
   try {
     const authId = req.auth?.payload.sub
-    const email = req.auth?.payload.email // Ensure 'email' scope is in Auth0 config
+    // Support both the namespaced claim from Auth0 Actions and standard email claims
+    const email =
+      req.auth?.payload['https://catv2.local/email'] || req.auth?.payload.email
 
     if (!authId) {
       return res.status(401).json({ message: 'Unauthorized: No valid token.' })

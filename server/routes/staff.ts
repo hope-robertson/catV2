@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { Response } from 'express'
 import { checkJwt } from '../auth0/auth.js'
 import { authorizeUser, UserRequest } from '../auth0/permissions.js'
 import knex from '../db/connection.js'
@@ -26,5 +26,32 @@ router.get('/me', checkJwt, authorizeUser, (req: UserRequest, res) => {
 
   res.json(req.dbUser)
 })
+
+// PATCH /api/v1/staff/:id
+// Updates staff record (e.g., toggling admin or trusted orderer status)
+router.patch(
+  '/:id',
+  checkJwt,
+  authorizeUser,
+  async (req: UserRequest, res: Response | any) => {
+    const { id } = req.params
+    const { is_admin, is_trusted_orderer } = req.body
+
+    try {
+      await knex('staff')
+        .where({ id })
+        .update({
+          ...(is_admin !== undefined && { is_admin }),
+          ...(is_trusted_orderer !== undefined && { is_trusted_orderer }),
+          updated_at: knex.fn.now(),
+        })
+
+      res.json({ message: 'Staff record updated successfully' })
+    } catch (error: any) {
+      console.error('🔥 Failed to update staff record:', error.message)
+      res.status(500).json({ message: 'Update failed', error: error.message })
+    }
+  },
+)
 
 export default router
