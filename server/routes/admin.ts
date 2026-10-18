@@ -70,7 +70,7 @@ router.get('/staff', checkJwt, authorizeUser, async (req, res) => {
   }
 })
 
-// ➕ ADD NEW STAFF MEMBER BY EMAIL (Admin Action)[cite: 15]
+// ➕ ADD NEW STAFF MEMBER BY EMAIL (Admin Action)
 router.post(
   '/staff/invite',
   checkJwt,
@@ -93,13 +93,18 @@ router.post(
       const staffName = name || email.split('@')[0]
 
       await knex.transaction(async (trx) => {
-        const [insertedId] = await trx('staff').insert({
-          name: staffName,
-          email,
-          is_admin: false,
-          is_trusted_orderer: false,
-          has_completed_onboarding: false,
-        })
+        const [insertedIds] = await trx('staff')
+          .insert({
+            name: staffName,
+            email,
+            is_admin: false,
+            is_trusted_orderer: false,
+            has_completed_onboarding: false,
+          })
+          .returning('id')
+
+        const insertedId =
+          typeof insertedIds === 'object' ? insertedIds.id : insertedIds
 
         // Add to existing duty rotations queue if needed
         const rotations = await trx('duty_rotations').select(
@@ -154,7 +159,7 @@ router.delete(
   },
 )
 
-// 🏴‍☠️ RECRUITMENT (With Smart Upsert & Auto-Bootstrap)[cite: 15]
+// 🏴‍☠️ RECRUITMENT (With Smart Upsert & Auto-Bootstrap)
 router.post('/staff', checkJwt, async (req: any, res) => {
   const { name, email, phone } = req.body
   const authId = req.auth?.payload?.sub
@@ -189,16 +194,19 @@ router.post('/staff', checkJwt, async (req: any, res) => {
           })
         staffIdToQueue = existingStaff.id
       } else {
-        const [insertedId] = await trx('staff').insert({
-          name,
-          email,
-          phone: phone || null,
-          auth_id: noAdminsExist ? authId : null,
-          is_admin: noAdminsExist,
-          is_trusted_orderer: noAdminsExist,
-          has_completed_onboarding: noAdminsExist,
-        })
-        staffIdToQueue = insertedId
+        const [insertedIds] = await trx('staff')
+          .insert({
+            name,
+            email,
+            phone: phone || null,
+            auth_id: noAdminsExist ? authId : null,
+            is_admin: noAdminsExist,
+            is_trusted_orderer: noAdminsExist,
+            has_completed_onboarding: noAdminsExist,
+          })
+          .returning('id')
+        staffIdToQueue =
+          typeof insertedIds === 'object' ? insertedIds.id : insertedIds
       }
 
       const rotations = await trx('duty_rotations').select('id', 'queue_order')
