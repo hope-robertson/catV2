@@ -92,39 +92,12 @@ router.post(
 
       const staffName = name || email.split('@')[0]
 
-      await knex.transaction(async (trx) => {
-        const [insertedIds] = await trx('staff')
-          .insert({
-            name: staffName,
-            email,
-            is_admin: false,
-            is_trusted_orderer: false,
-            has_completed_onboarding: false,
-          })
-          .returning('id')
-
-        const insertedId =
-          typeof insertedIds === 'object' ? insertedIds.id : insertedIds
-
-        // Add to existing duty rotations queue if needed
-        const rotations = await trx('duty_rotations').select(
-          'id',
-          'queue_order',
-        )
-        for (const rotation of rotations) {
-          const currentQueue: number[] = JSON.parse(
-            rotation.queue_order || '[]',
-          )
-          if (!currentQueue.includes(insertedId)) {
-            currentQueue.push(insertedId)
-          }
-          await trx('duty_rotations')
-            .where('id', rotation.id)
-            .update({
-              queue_order: JSON.stringify(currentQueue),
-              updated_at: knex.fn.now(),
-            })
-        }
+      // Insert directly into the staff table without transactions or queue lookups
+      await knex('staff').insert({
+        name: staffName,
+        email,
+        is_admin: false,
+        is_trusted_orderer: false,
       })
 
       res
@@ -156,12 +129,10 @@ router.delete(
       res.json({ message: 'Staff member removed successfully.' })
     } catch (error: any) {
       console.error('🔥 Failed to delete staff member:', error.message)
-      res
-        .status(500)
-        .json({
-          message: 'Failed to delete staff member',
-          error: error.message,
-        })
+      res.status(500).json({
+        message: 'Failed to delete staff member',
+        error: error.message,
+      })
     }
   },
 )
