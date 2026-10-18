@@ -11,6 +11,7 @@ import orderRoutes from './routes/orders.js'
 import adminRoutes from './routes/admin.js'
 import customerRoutes from './routes/customers.js'
 import wishlistRoutes from './routes/wishlist.js'
+import { authorizeUser } from './auth0/permissions.js'
 import { checkJwt } from './utils/auth.js'
 
 const server = express()
@@ -51,7 +52,7 @@ server.use(express.static(Path.join(Path.resolve(), 'public')))
 // API Routes
 server.use('/api/v1/staff', staffRoutes)
 server.use('/api/v1/orders', checkJwt, orderRoutes)
-server.use('/api/v1/admin', checkJwt, adminRoutes)
+server.use('/api/v1/admin', checkJwt, authorizeUser, adminRoutes)
 server.use('/api/v1/customers', checkJwt, customerRoutes)
 server.use('/api/v1/upload', checkJwt, uploadRouter)
 server.use('/api/v1/catalogue', checkJwt, catalogueRoutes)
